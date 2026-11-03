@@ -1,4 +1,4 @@
-import { useState, useSyncExternalStore } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import {
   chooseFolder,
   forgetFolder,
@@ -6,10 +6,76 @@ import {
   isDesktop,
   openFolder,
   reconnectFolder,
+  restoreBackup,
   restoreFromFolder,
   saveNow,
   subscribeStatus,
+  type BackupSnapshot,
 } from '../lib/localSave';
+
+const REASONS: Record<string, string> = {
+  version: 'before an update',
+  daily: 'daily',
+  'before-restore': 'before a restore',
+  'big-change': 'before a big change',
+};
+const sizeText = (b: number) => (b < 1024 * 1024 ? `${Math.max(1, Math.round(b / 1024))} KB` : `${(b / 1024 / 1024).toFixed(1)} MB`);
+
+/** The snapshots in the save folder's Backups, and restoring one (desktop app). */
+function Backups({ run }: { run: (fn: () => Promise<string | void>) => Promise<void> }) {
+  const [snaps, setSnaps] = useState<BackupSnapshot[] | null>(null);
+  const [pick, setPick] = useState('');
+  const load = () => void window.desktop?.backups?.list().then((list) => {
+    const usable = list.filter((s) => s.size > 0);
+    setSnaps(usable);
+    setPick((p) => p || usable[0]?.name || '');
+  });
+  useEffect(load, []);
+  if (!window.desktop?.backups) return null;
+  const chosen = snaps?.find((s) => s.name === pick);
+  return (
+    <div style={{ display: 'grid', gap: 8 }}>
+      <h3 className="subhead" style={{ margin: 0 }}>
+        Backups
+      </h3>
+      <p className="muted" style={{ margin: 0, fontSize: 13 }}>
+        A copy of everything is put in the save folder's <code>Backups</code> before each update first runs, once a day,
+        before a restore, and before any save that would suddenly lose a lot. Updates never touch them, and saved
+        collections in it are never deleted (only the daily ones beyond the last two weeks are).
+      </p>
+      {snaps && !snaps.length && <span className="muted">No backups yet: the first is made the next time Appa starts.</span>}
+      {!!snaps?.length && (
+        <div className="row">
+          <select value={pick} onChange={(e) => setPick(e.target.value)} aria-label="Backup" style={{ maxWidth: '100%' }}>
+            {snaps.map((s) => (
+              <option key={s.name} value={s.name}>
+                {new Date(s.time).toLocaleString()} · {REASONS[s.reason] ?? s.reason}
+                {s.version ? ` · v${s.version}` : ''} · {sizeText(s.size)}
+              </option>
+            ))}
+          </select>
+          <button
+            disabled={!chosen}
+            onClick={() =>
+              run(async () => {
+                if (!chosen) return;
+                if (!confirm(`Replace everything in Appa with the backup from ${new Date(chosen.time).toLocaleString()}?\n\nWhat's there now is backed up first, so you can come back to it the same way.`)) return;
+                const n = await restoreBackup(chosen.name);
+                load();
+                return `Restored ${n} cards from the backup. Your collection from before is in Backups too.`;
+              })
+            }
+          >
+            Restore this backup
+          </button>
+        </div>
+      )}
+      <div className="row">
+        <button onClick={() => void window.desktop?.backups?.open()}>Open Backups folder</button>
+      </div>
+    </div>
+  );
+}
 
 function ago(ms: number) {
   const s = Math.round((Date.now() - ms) / 1000);
@@ -82,6 +148,7 @@ export function LocalSaving() {
         </div>
         {st.error && <span style={{ color: 'var(--again)' }}>Last save failed: {st.error}</span>}
         {msg && <span style={{ color: msg.error ? 'var(--again)' : 'var(--text-2)' }}>{msg.text}</span>}
+        <Backups run={run} />
       </div>
     );
   }

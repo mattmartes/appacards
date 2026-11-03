@@ -9,6 +9,7 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 const updater = require('./updater.cjs');
+const backups = require('./backups.cjs');
 
 const DIST = path.join(__dirname, '..', 'dist');
 /** App icon: electron-builder also picks up build/icon.png for the .exe. */
@@ -116,6 +117,14 @@ function registerIpc() {
 
   ipcMain.handle('fs:openDataDir', () => shell.openPath(dataDir));
 
+  // backups (electron/backups.cjs)
+  ipcMain.handle('backups:list', () => backups.list(dataDir));
+  ipcMain.handle('backups:open', async () => {
+    const dir = path.join(dataDir, backups.DIR);
+    await fs.mkdir(dir, { recursive: true });
+    return shell.openPath(dir);
+  });
+
   // updates
   ipcMain.handle('update:ready', () => updater.confirm());
   ipcMain.handle('update:version', () => ({ app: updater.servingVersion(), installer: app.getVersion() }));
@@ -182,6 +191,8 @@ if (!app.requestSingleInstanceLock()) {
       return net.fetch(pathToFileURL(file).toString());
     });
     await loadConfig();
+    // before this version of the app touches anything: a snapshot of the data
+    if (!DEV_URL) backups.atStart(dataDir, app.getPath('userData'), updater.servingVersion());
     registerIpc();
     createWindow();
     if (!DEV_URL)

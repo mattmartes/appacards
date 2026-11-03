@@ -16,7 +16,8 @@ Windows and macOS. The GitHub repository is https://github.com/mattmartes/appaca
   thing, don't overwrite it.
 - `electron/`: the desktop container. `main.cjs` (window, `app://` protocol, data
   folder IPC), `preload.cjs` (the `window.desktop` bridge), `updater.cjs` and
-  `bundle.cjs` (self-updates), `build.mjs`, `publish.mjs`, `keys.mjs`.
+  `bundle.cjs` (self-updates), `backups.cjs` (the Backups folder), `build.mjs`,
+  `publish.mjs`, `keys.mjs`. Every `electron/*.cjs` goes into the installers.
 - `.github/workflows/desktop.yml`: builds the installers on GitHub (Mac and
   Windows) and publishes releases from version tags.
 
@@ -101,8 +102,36 @@ user may have Appa open.
   `decode()`.
 - A changed `vite.config.ts` needs the preview server restarted.
 
+## Saved data: never lose it, always read old versions
+
+Users' data must survive every update, and an older version of the app must
+never damage data a newer one wrote. Rules for any change that touches what's
+saved:
+
+- **Only add, never take away.** New fields are optional, with a default
+  where they're read (`{ ...DEFAULT_X, ...saved }`). Never rename or remove a
+  saved field, change what an existing one means, or reuse its name.
+- **The database** (`openDB` in `collection.ts`): raise its version only to add
+  object stores or indexes. Never delete or clear a store in an upgrade, and
+  never call `deleteDatabase`.
+- **Old saved formats are read and converted when they load**, never rejected:
+  `importBackup` reads every older `fsrs-cards-backup.json`, `toSheet` in
+  `gridText.ts` reads old Grid notes, `migrateSettings` reads old settings.
+  Extend these rather than dropping support.
+- **Nothing deletes files in the data folder.** Its `media/` is only ever added
+  to, and `Backups/` is only pruned by `electron/backups.cjs` (old daily
+  snapshots and old raw copies, never another saved collection).
+- **Backups** (`electron/backups.cjs`, `keepCopy` in `localSave.ts`): a snapshot
+  goes into the data folder's `Backups/` before each new version first starts,
+  once a day, before a restore, and before a save that would drop half the
+  cards, notes or review history. Preferences → Saving lists and restores them.
+  Keep all of this working.
+- An older version that meets a database a newer one upgraded can't open it;
+  it says so and changes nothing (`App.tsx`). Don't "fix" that by downgrading
+  or recreating the database.
+- Test a change to saving with the packaged app and a throwaway profile (see
+  above) holding an older save, and check the data afterwards.
+
 ## Style
 
 - Comments say why, in plain words, at the density of the code around them.
-- Keep the user's data safe: no destructive migrations; old saved formats are
-  read and converted (see `toSheet` in `gridText.ts`).

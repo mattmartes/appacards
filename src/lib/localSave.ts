@@ -16,6 +16,8 @@ const MEDIA_DIR = 'media';
 const BACKGROUND_FILE = 'background';
 const HANDLE_DB = 'fsrs-cards-local-save';
 const AUTOSAVE_DELAY_MS = 2000;
+/** snapshots, inside the save folder; nothing here is ever overwritten */
+const BACKUPS_DIR = 'Backups';
 
 // ------------------------------------------------------------ platform types
 
@@ -29,6 +31,11 @@ interface DesktopBridge {
   remove(rel: string): Promise<void>;
   chooseDataDir(): Promise<string | null>;
   openDataDir(): Promise<string>;
+  /** missing in installers from before backups */
+  backups?: {
+    list(): Promise<BackupSnapshot[]>;
+    open(): Promise<string>;
+  };
   /** missing in installers from before updates */
   updates?: {
     ready(): Promise<void>;
@@ -36,6 +43,17 @@ interface DesktopBridge {
     version(): Promise<{ app: string; installer: string }>;
     onStatus(cb: (status: UpdateStatus) => void): () => void;
   };
+}
+
+/** A snapshot in the data folder's Backups (electron/backups.cjs). */
+export interface BackupSnapshot {
+  name: string;
+  /** 'version' (before a new version first ran), 'daily', 'before-restore', 'big-change' */
+  reason: string;
+  version: string;
+  time: number;
+  /** bytes of its collection.json; 0 when it has none */
+  size: number;
 }
 
 /** What the desktop app's updater is doing. */
@@ -98,7 +116,12 @@ function handleStore(root: DirHandle): FolderStore {
     const i = name.lastIndexOf('/');
     return i < 0 ? [null, name] : [name.slice(0, i), name.slice(i + 1)];
   };
-  const dirOf = async (sub: string | null, create: boolean) => (sub ? root.getDirectoryHandle(sub, { create }) : root);
+  // a path like Backups/<snapshot>: one folder at a time
+  const dirOf = async (sub: string | null, create: boolean) => {
+    let dir: FileSystemDirectoryHandle = root;
+    for (const part of sub ? sub.split('/') : []) dir = await dir.getDirectoryHandle(part, { create });
+    return dir;
+  };
   const file = async (name: string) => {
     const [sub, base] = split(name);
     return (await dirOf(sub, false)).getFileHandle(base);
@@ -307,13 +330,56 @@ async function primeWrittenMedia() {
 
 // ------------------------------------------------------------ save & restore
 
-/** Writes everything to the folder now. */
+/** How much a saved collection holds, to notice a save that loses a lot. */
+const sizeOf = (b: Pick<Backup, 'cards' | 'revlog'> & { notes?: unknown[] }) => ({
+  cards: b.cards?.length ?? 0,
+  revlog: b.revlog?.length ?? 0,
+  notes: b.notes?.length ?? 0,
+});
+/** what the folder's copy held at the last save (read from it at the first) */
+let savedSize: ReturnType<typeof sizeOf> | null | undefined;
+
+const backupStamp = (d = new Date()) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ` +
+  `${String(d.getHours()).padStart(2, '0')}.${String(d.getMinutes()).padStart(2, '0')}.${String(d.getSeconds()).padStart(2, '0')}`;
+
+/** Copies the folder's saved collection into Backups before it's replaced. */
+async function keepCopy(reason: string, label: string) {
+  if (!store) return;
+  const text = await store.readText(BACKUP_FILE);
+  if (!text) return;
+  const dir = `${BACKUPS_DIR}/${backupStamp()} ${label}`;
+  await store.write(`${dir}/collection.json`, text);
+  const bg = await store.readBlob(BACKGROUND_FILE);
+  if (bg) await store.write(`${dir}/background`, bg);
+  await store.write(`${dir}/snapshot.json`, JSON.stringify({ reason, version: __APP_VERSION__, time: Date.now() }, null, 2));
+}
+
+/** Writes everything to the folder now. A save that would drop much of what
+ * the folder holds (half the cards, notes or review history) keeps the
+ * previous copy in Backups first: if that's a mistake, nothing is lost. */
 export async function saveNow() {
   if (!store || status.folderState !== 'ready') return;
   dirty = false;
   set({ saving: true, error: null });
   try {
-    await store.write(BACKUP_FILE, JSON.stringify(col.exportBackup()));
+    const backup = col.exportBackup();
+    const now = sizeOf(backup);
+    if (savedSize === undefined) {
+      const text = await store.readText(BACKUP_FILE);
+      try {
+        savedSize = text ? sizeOf(JSON.parse(text) as Backup) : null;
+      } catch {
+        savedSize = null;
+      }
+    }
+    const was = savedSize;
+    const dropped = (a: number, b: number, floor: number) => a >= floor && b < a / 2;
+    if (was && (dropped(was.cards, now.cards, 20) || dropped(was.notes, now.notes, 20) || dropped(was.revlog, now.revlog, 50)))
+      // a copy that can't be made mustn't stop the save itself
+      await keepCopy('big-change', 'before a big change').catch((e) => console.error('Backup copy failed:', e));
+    await store.write(BACKUP_FILE, JSON.stringify(backup));
+    savedSize = now;
     for (const name of await col.mediaNames()) {
       if (writtenMedia.has(name)) continue;
       const blob = await col.getMedia(name);
@@ -330,6 +396,31 @@ export async function saveNow() {
     dirty = true;
     set({ saving: false, error: (e as Error).message, ...(lost ? { folderState: 'needs-permission' as const } : {}) });
   }
+}
+
+/** Replaces the collection with a snapshot from Backups. What's there now
+ * is kept as a snapshot first, so a restore can be undone the same way. */
+export async function restoreBackup(name: string): Promise<number> {
+  if (!store) throw new Error('No folder chosen.');
+  const text = await store.readText(`${BACKUPS_DIR}/${name}/collection.json`);
+  if (!text) throw new Error("This backup has no saved collection in it.");
+  const backup = JSON.parse(text) as Backup;
+  await flush();
+  await keepCopy('before-restore', 'before restoring a backup');
+  await col.importBackup(backup);
+  // media: every file the backup refers to is still in the folder's media/
+  const media = new Map<string, Blob>();
+  for (const name of await store.list(MEDIA_DIR)) {
+    if (await col.getMedia(name)) continue;
+    const blob = await store.readBlob(`${MEDIA_DIR}/${name}`);
+    if (blob) media.set(name, blob);
+  }
+  if (media.size) await col.putMedia(media);
+  const bg = await store.readBlob(`${BACKUPS_DIR}/${name}/background`);
+  if (bg) await col.setBackground(bg);
+  savedSize = undefined;
+  await saveNow();
+  return backup.cards.length;
 }
 
 /** Replaces the collection with what's saved in the folder. */

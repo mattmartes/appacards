@@ -83,7 +83,7 @@ export default function App() {
         // the desktop app: this version started properly
         void window.desktop?.updates?.ready();
       },
-      (e) => setError(String(e)),
+      (e) => setError(`${(e as Error)?.name ?? ''}: ${(e as Error)?.message ?? String(e)}`),
     );
   }, []);
 
@@ -137,7 +137,22 @@ export default function App() {
     mainRef.current?.scrollTo({ top: 0 });
   };
 
-  if (error) return <main className="panel">Could not open the database: {error}</main>;
+  if (error)
+    return (
+      <main className="panel">
+        {/VersionError|requested version .* less than/i.test(error) ? (
+          <>
+            <h2 style={{ marginTop: 0 }}>Your collection was saved by a newer version of Appa</h2>
+            <p>
+              This version ({__APP_VERSION__}) is older and can't open it, so it hasn't touched it: nothing is changed or
+              lost. Restart Appa so it can update, or install the newest version from the website.
+            </p>
+          </>
+        ) : (
+          <>Could not open the database: {error}</>
+        )}
+      </main>
+    );
   if (!ready) return <main className="muted">Loading…</main>;
 
   return (

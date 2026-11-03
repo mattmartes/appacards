@@ -16,6 +16,11 @@ contextBridge.exposeInMainWorld('desktop', {
   /** Opens a folder picker; returns the new folder or null if cancelled. */
   chooseDataDir: () => ipcRenderer.invoke('fs:chooseDataDir'),
   openDataDir: () => ipcRenderer.invoke('fs:openDataDir'),
+  backups: {
+    /** Snapshots in the data folder's Backups, newest first. */
+    list: () => ipcRenderer.invoke('backups:list'),
+    open: () => ipcRenderer.invoke('backups:open'),
+  },
   updates: {
     /** The page started properly: the update it's running is good. */
     ready: () => ipcRenderer.invoke('update:ready'),
