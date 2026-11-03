@@ -1,10 +1,15 @@
 # Builds the desktop installers on GitHub's machines: the Mac app (Intel and
-# Apple Silicon) on a Mac, and the Windows installers on Windows. Run it from
-# the Actions tab ("Run workflow"), or push a tag like v1.1.0. The finished
-# files are attached to the run as "appa-mac" and "appa-windows".
+# Apple Silicon) on a Mac, and the Windows installers on Windows.
 #
-# The public update key (electron/update-key.pem) must be committed so the
-# installers can check updates; the private key (update-keys/) must not.
+# Pushing a version tag (v1.2.3, matching "version" in package.json) also
+# publishes a GitHub release with the installers and, when the repository has
+# the UPDATE_PRIVATE_KEY secret, the signed update (latest.json and the
+# .appabundle) that installed apps download. Running it by hand from the
+# Actions tab ("Run workflow") only builds: the files are on the run's page.
+#
+# The public update key (electron/update-key.pem) is committed; the private
+# one lives only in update-keys/ on the publisher's computer and in the
+# UPDATE_PRIVATE_KEY secret (Settings → Secrets and variables → Actions).
 
 name: Desktop installers
 
@@ -34,6 +39,15 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Check the tag matches the version
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: |
+          version=$(node -p "require('./package.json').version")
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "The tag $GITHUB_REF_NAME doesn't match package.json's version $version"
+            exit 1
+          fi
       - name: Check the update key is there
         shell: bash
         run: |
@@ -47,3 +61,42 @@ jobs:
           name: ${{ matrix.name }}
           path: ${{ matrix.files }}
           if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Sign the update
+        env:
+          UPDATE_PRIVATE_KEY: ${{ secrets.UPDATE_PRIVATE_KEY }}
+        shell: bash
+        run: |
+          if [ -z "$UPDATE_PRIVATE_KEY" ]; then
+            echo "::warning::No UPDATE_PRIVATE_KEY secret: the release has installers but no update, so installed apps won't update to it."
+            exit 0
+          fi
+          mkdir -p update-keys
+          printf '%s\n' "$UPDATE_PRIVATE_KEY" > update-keys/private.pem
+          npm run publish-update -- "$(git tag -l --format='%(contents:subject)' "$GITHUB_REF_NAME")"
+          rm update-keys/private.pem
+      - uses: actions/download-artifact@v4
+        with:
+          path: installers
+          merge-multiple: true
+      - name: Publish the release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Appa ${{ github.ref_name }}
+          generate_release_notes: true
+          files: |
+            installers/*
+            release/updates/*

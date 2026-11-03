@@ -11,7 +11,7 @@ npm run dev
 
 Then open http://localhost:5173. To serve a production build instead: `npm run build && npm run preview`.
 
-## Desktop app (Windows)
+## Desktop app (Windows and macOS)
 
 The same web code also runs as a desktop app (Electron), which saves straight to a folder on your computer.
 
@@ -31,6 +31,22 @@ This builds `release/Appa Setup <version>.exe` (an installer) and `release/Appa 
 - **Icon:** `build/icon.png` is the app and installer icon, and `public/icon.png` is the browser tab icon.
 - **Moving computers:** a fresh install, or a new computer pointed at the same folder (for example in OneDrive), loads the saved collection automatically.
 - **Security:** the window runs with context isolation and a sandbox. The page can only read and write inside the data folder, through `electron/preload.cjs`.
+- **Mac:** the Mac app (Intel and Apple Silicon) is built on GitHub's Macs by `.github/workflows/desktop.yml`. It isn't signed by Apple, so the first time, right-click it and choose **Open** (or allow it in System Settings → Privacy & Security).
+
+### Updates and releases
+
+Installed apps update themselves without a new installer. They check `latest.json` on the repository's newest GitHub release (`"appaUpdates.url"` in `package.json`), download the signed update in the background, and offer to restart into it. The version shows in the bottom-right corner.
+
+To release a version, bump `"version"` in `package.json`, commit, then push a matching tag:
+
+```bash
+git tag -a v1.1.1 -m "What's new"
+git push origin v1.1.1
+```
+
+GitHub then builds the Mac and Windows installers, signs the update and publishes the release. Signing uses the `UPDATE_PRIVATE_KEY` repository secret, a copy of `update-keys/private.pem`. Keep that file backed up and never commit it: without it, installed apps can't take updates. `npm run publish-update` makes the same update files locally.
+
+Only the web app updates this way. A change in `electron/` needs a new installer; when the web app depends on one, raise `"appaUpdates.minShell"`.
 
 ## Layout
 
