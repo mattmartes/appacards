@@ -1,7 +1,7 @@
 // A class's homepage: opened by clicking a class in the sidebar. Its title,
 // what's waiting, then its decks and its notes as two separate grids.
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import type { View } from '../App';
 import { useCollection } from '../lib/collection';
 import { baseName, isWithin } from '../lib/deckTree';
@@ -16,6 +16,18 @@ export function ClassHome({ deckId, go }: { deckId: Id; go: (v: View) => void })
   const col = useCollection();
   const deck = col.decks.get(deckId);
   const [creating, setCreating] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const input = useRef<HTMLInputElement>(null);
+
+  const upload = async (list: FileList) => {
+    if (!list.length) return;
+    setUploading(true);
+    try {
+      await col.addDeckFiles(deckId, [...list]);
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const data = useMemo(() => {
     if (!deck) return null;
@@ -56,7 +68,11 @@ export function ClassHome({ deckId, go }: { deckId: Id; go: (v: View) => void })
           </div>
         </div>
         <div className="row">
+          <button onClick={() => input.current?.click()} disabled={uploading} title="Upload lecture slides, PDFs, documents or images to this class">
+            {uploading ? 'Uploading…' : 'Add notes'}
+          </button>
           <button onClick={() => go({ name: 'add', deckId })}>Add cards</button>
+          <input ref={input} type="file" multiple hidden onChange={(e) => e.target.files && void upload(e.target.files).then(() => (e.target.value = ''))} />
         </div>
       </header>
 
@@ -117,9 +133,9 @@ export function ClassHome({ deckId, go }: { deckId: Id; go: (v: View) => void })
           </button>
         </div>
         {files.length === 0 ? (
-          <button className="notes-empty" onClick={() => go({ name: 'notes', deckId })}>
+          <button className="notes-empty" onClick={() => input.current?.click()}>
             <b>No notes yet</b>
-            <span className="muted">Open Notes to upload lecture slides, PDFs and documents, or write a note.</span>
+            <span className="muted">Click to upload lecture slides, PDFs and documents, or open Notes to write one.</span>
           </button>
         ) : (
           <div className="file-grid" role="list">

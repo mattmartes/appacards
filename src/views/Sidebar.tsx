@@ -1,8 +1,7 @@
-// The app's sidebar: the product, the main screens, your decks as a tree
-// (click one to study it), and statistics and preferences at the foot.
-// Opening a deck's arrow shows its Notes (uploaded files) and its Decks
-// (its cards and subdecks). Decks are classes: opening one closes the
-// others. Deck actions live here too.
+// The app's sidebar: the product, the main screens, your classes as a tree
+// (click one for its homepage), and statistics and preferences at the foot.
+// Opening a class shows its Decks (its cards and subdecks); its Notes are on
+// its homepage. Opening one class closes the others. Deck actions live here too.
 
 import { useState } from 'react';
 import type { View } from '../App';
@@ -25,7 +24,6 @@ const NAV: { name: View['name']; label: string; icon: string }[] = [
   { name: 'lab', label: 'Lab', icon: 'M9 3h6M10 3v6L4.5 19a1 1 0 0 0 .9 1.5h13.2a1 1 0 0 0 .9-1.5L14 9V3M7 15h10' },
 ];
 
-const NOTES_ICON = 'M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8zM14 3v5h5M9 13h6M9 17h6';
 const CARDS_ICON = 'M4 7h12a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1zM7 4h13a1 1 0 0 1 1 1v12';
 
 const OPEN_KEY = 'appa-sidebar-open';
@@ -76,16 +74,15 @@ export function Sidebar({ view, go }: { view: View; go: (v: View) => void }) {
   const childrenOf = (d: Deck | null) =>
     decks.filter((x) => (d ? x.name.startsWith(`${d.name}::`) && !x.name.slice(d.name.length + 2).includes('::') : !x.name.includes('::')));
   const studying = view.name === 'review' ? view.deckId : null;
-  const notesOf = view.name === 'notes' ? view.deckId : null;
-  const classOf = view.name === 'class' ? view.deckId : null;
+  // a class's Notes page belongs to its homepage, so the class stays lit there
+  const classOf = view.name === 'class' || view.name === 'notes' ? view.deckId : null;
   const settingsDeck = settingsFor !== null ? col.decks.get(settingsFor) : undefined;
 
-  /** A deck row, and when it's open, its Notes and Decks with the subdecks under Decks. */
+  /** A deck row, and when it's open, its Decks with the subdecks under it. Notes are on the class's homepage. */
   const renderDeck = (d: Deck, level: number) => {
     const c = col.counts(d.id);
     const due = c.reviewCount + c.learnCount;
     const isOpen = open.has(d.id);
-    const files = col.deckFilesFor(d.id).length;
     const subs = childrenOf(d);
     const indent = (n: number) => ({ paddingLeft: 4 + n * 14 });
     return (
@@ -120,11 +117,6 @@ export function Sidebar({ view, go }: { view: View; go: (v: View) => void }) {
         </div>
         {isOpen && (
           <div role="group">
-            <button className={`deck-sub ${notesOf === d.id ? 'active' : ''}`} style={indent(level + 1)} onClick={() => go({ name: 'notes', deckId: d.id })}>
-              {icon(NOTES_ICON, 15)}
-              <span className="deck-label">Notes</span>
-              {files > 0 && <span className="deck-sub-count num">{files}</span>}
-            </button>
             <div className="deck-sub-row">
               <button className={`deck-sub ${studying === d.id ? 'active' : ''}`} style={indent(level + 1)} onClick={() => go({ name: 'review', deckId: d.id })}>
                 {icon(CARDS_ICON, 15)}
