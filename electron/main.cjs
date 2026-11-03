@@ -128,6 +128,9 @@ function registerIpc() {
   // updates
   ipcMain.handle('update:ready', () => updater.confirm());
   ipcMain.handle('update:version', () => ({ app: updater.servingVersion(), installer: app.getVersion() }));
+  ipcMain.handle('update:check', () => updater.check());
+  ipcMain.handle('update:install', () => updater.install());
+  ipcMain.handle('update:status', () => updater.status());
   ipcMain.handle('update:restart', () => {
     app.relaunch();
     app.exit(0);

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { col, useCollection } from './lib/collection';
 import { groundLuminance, haloStrength, nextTone } from './lib/groundTone';
 import { initLocalSave, type UpdateStatus } from './lib/localSave';
+import { RELEASES_URL, updateText } from './views/UpdatePrefs';
 import type { Id, LessonSource } from './lib/types';
 
 /** What a new lesson starts with when it comes from a deck's Notes. */
@@ -87,9 +88,26 @@ export default function App() {
     );
   }, []);
 
-  // the desktop app tells us when a newer version has downloaded
+  // the desktop app tells us about new versions. A new one shows in the
+  // corner for a few seconds; once you choose to update, it stays until the
+  // restart. Older installers download by themselves and just say "ready".
   const [update, setUpdate] = useState<UpdateStatus | null>(null);
-  useEffect(() => window.desktop?.updates?.onStatus((s) => (s.state === 'ready' || s.state === 'needs-installer' ? setUpdate(s) : undefined)), []);
+  const [updating, setUpdating] = useState(false);
+  const updatingRef = useRef(false);
+  updatingRef.current = updating;
+  useEffect(
+    () =>
+      window.desktop?.updates?.onStatus((s) => {
+        if (s.state === 'available' || s.state === 'needs-installer' || s.state === 'ready') setUpdate(s);
+        else if (updatingRef.current && (s.state === 'downloading' || s.state === 'failed')) setUpdate(s);
+      }),
+    [],
+  );
+  useEffect(() => {
+    if (!update || updating || update.state === 'ready') return;
+    const t = setTimeout(() => setUpdate(null), 10_000);
+    return () => clearTimeout(t);
+  }, [update, updating]);
 
   // Text on a custom background takes dark or light ink to match it.
   const bgUrl = ready ? col.backgroundUrl : null;
@@ -169,23 +187,39 @@ export default function App() {
       </span>
       {update && (
         <div className="update-toast" role="status">
-          {update.state === 'ready' ? (
-            <>
-              <span>
-                <b>Appa {update.version} is ready.</b> {update.notes ? update.notes : 'Restart to use it.'}
-              </span>
-              <button className="primary" onClick={() => void window.desktop?.updates?.restart()}>
-                Restart
-              </button>
-            </>
-          ) : (
-            <span>
-              <b>Appa {update.version} is out</b>, but it needs a new download of the app itself.
-            </span>
+          <span>{updateText(update)}</span>
+          {update.state === 'available' && window.desktop?.updates?.install && (
+            <button
+              className="primary"
+              onClick={() => {
+                setUpdating(true);
+                void window.desktop?.updates?.install?.().then(setUpdate);
+              }}
+            >
+              Update
+            </button>
           )}
-          <button className="link" aria-label="Later" onClick={() => setUpdate(null)}>
-            Later
-          </button>
+          {update.state === 'ready' && (
+            <button className="primary" onClick={() => void window.desktop?.updates?.restart()}>
+              Restart
+            </button>
+          )}
+          {update.state === 'needs-installer' && (
+            <a className="button-like" href={RELEASES_URL} target="_blank" rel="noreferrer">
+              Download
+            </a>
+          )}
+          {update.state !== 'downloading' && (
+            <button
+              className="link"
+              onClick={() => {
+                setUpdate(null);
+                setUpdating(false);
+              }}
+            >
+              Later
+            </button>
+          )}
         </div>
       )}
       <div className={`app-shell ${(view.name === 'lab' || view.name === 'note') && labSidebarHidden ? 'sidebar-hidden' : ''}`}>

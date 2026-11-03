@@ -42,6 +42,10 @@ interface DesktopBridge {
     restart(): Promise<void>;
     version(): Promise<{ app: string; installer: string }>;
     onStatus(cb: (status: UpdateStatus) => void): () => void;
+    /** these three: installers from 1.1.4, where updating is the user's choice */
+    check?(): Promise<UpdateStatus>;
+    install?(): Promise<UpdateStatus>;
+    status?(): Promise<UpdateStatus>;
   };
 }
 
@@ -58,7 +62,7 @@ export interface BackupSnapshot {
 
 /** What the desktop app's updater is doing. */
 export interface UpdateStatus {
-  state: 'downloading' | 'ready' | 'needs-installer' | 'failed';
+  state: 'idle' | 'off' | 'checking' | 'up-to-date' | 'available' | 'downloading' | 'ready' | 'needs-installer' | 'failed';
   version?: string;
   notes?: string;
   message?: string;

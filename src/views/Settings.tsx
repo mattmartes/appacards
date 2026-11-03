@@ -8,11 +8,13 @@ import { AiPrefs } from './AiPrefs';
 import { ControllerPrefs } from './ControllerPrefs';
 import { Appearance } from './Appearance';
 import { LocalSaving } from './LocalSaving';
+import { UpdatePrefs } from './UpdatePrefs';
 
 const SECTIONS = [
   ['general', 'General'],
   ['appearance', 'Appearance'],
   ['saving', 'Saving'],
+  ...(window.desktop?.updates ? ([['updates', 'Updates']] as const) : []),
   ['controller', 'Controller'],
   ['ai', 'AI'],
   ['advanced', 'Advanced'],
@@ -113,6 +115,7 @@ export function SettingsView() {
 
       <div id="appearance"><Appearance /></div>
       <div id="saving"><LocalSaving /></div>
+      <div id="updates"><UpdatePrefs /></div>
       <div id="controller"><ControllerPrefs /></div>
       <div id="ai"><AiPrefs /></div>
       <div id="advanced"><AdvancedPrefs /></div>

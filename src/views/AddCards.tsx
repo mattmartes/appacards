@@ -30,7 +30,8 @@ function readLastType(): NoteKind {
   }
 }
 
-export function AddCards({ initialDeckId }: { initialDeckId?: Id }) {
+/** `bare`: inside a window that has its own title (the sidebar's + on a deck). */
+export function AddCards({ initialDeckId, bare = false }: { initialDeckId?: Id; bare?: boolean }) {
   const col = useCollection();
   const decks = col.deckList();
   const [deckId, setDeckId] = useState<Id>(initialDeckId ?? decks[0]?.id);
@@ -83,9 +84,9 @@ export function AddCards({ initialDeckId }: { initialDeckId?: Id }) {
   };
 
   return (
-    <div className="panel" style={{ display: 'grid', gap: 14 }}>
+    <div className={bare ? undefined : 'panel'} style={{ display: 'grid', gap: 14 }}>
       <div className="row">
-        <h1 style={{ margin: 0 }}>Add</h1>
+        {!bare && <h1 style={{ margin: 0 }}>Add</h1>}
         <span className="spacer" />
         <div className="seg" role="tablist" aria-label="How to add">
           <button role="tab" aria-selected={mode === 'single'} className={mode === 'single' ? 'active' : ''} onClick={() => setMode('single')}>

@@ -1,13 +1,15 @@
-// The app's sidebar: the product, the main screens, your classes as a tree
-// (click one for its homepage), and statistics and preferences at the foot.
-// Opening a class shows its Decks (its cards and subdecks); its Notes are on
-// its homepage. Opening one class closes the others. Deck actions live here too.
+// The app's sidebar: the product, the main screens, your classes (click one
+// for its homepage), and statistics and preferences at the foot. Opening a
+// class shows its Decks: the decks in it, which you click to study, with +
+// on each to add cards. A class's Notes are on its homepage. Opening one
+// class closes the others.
 
 import { useState } from 'react';
 import type { View } from '../App';
 import { useCollection } from '../lib/collection';
 import { baseName } from '../lib/deckTree';
 import type { Deck, Id } from '../lib/types';
+import { AddCards } from './AddCards';
 import { DeckOptions } from './DeckOptions';
 import { ImportAnki } from './ImportAnki';
 import { ChartIcon, GearIcon, Modal, PlusIcon, PromptDialog } from './Modal';
@@ -44,6 +46,8 @@ export function Sidebar({ view, go }: { view: View; go: (v: View) => void }) {
   const [importing, setImporting] = useState(false);
   const [settingsFor, setSettingsFor] = useState<Id | null>(null);
   const [newDeckIn, setNewDeckIn] = useState<Deck | null>(null);
+  /** the deck the add-cards window is open for */
+  const [addingTo, setAddingTo] = useState<Deck | null>(null);
 
   const save = (next: Set<Id>) => {
     setOpen(next);
@@ -78,21 +82,31 @@ export function Sidebar({ view, go }: { view: View; go: (v: View) => void }) {
   const classOf = view.name === 'class' || view.name === 'notes' ? view.deckId : null;
   const settingsDeck = settingsFor !== null ? col.decks.get(settingsFor) : undefined;
 
-  /** A deck row, and when it's open, its Decks with the subdecks under it. Notes are on the class's homepage. */
-  const renderDeck = (d: Deck, level: number) => {
+  const indent = (n: number) => ({ paddingLeft: 4 + n * 14 });
+  const countsOf = (d: Deck) => {
     const c = col.counts(d.id);
     const due = c.reviewCount + c.learnCount;
+    return (
+      <span className="deck-counts num">
+        {c.newCount > 0 && <span className="c-new">{c.newCount}</span>}
+        {due > 0 && <span className="c-review">{due}</span>}
+      </span>
+    );
+  };
+  const settingsButton = (d: Deck) => (
+    <button className="icon-button" onClick={() => setSettingsFor(d.id)} aria-label={`Settings for ${d.name}`} title="Deck settings">
+      <GearIcon size={16} />
+    </button>
+  );
+
+  /** A class, and when it's open, its Decks row with its decks under it. */
+  const renderClass = (d: Deck) => {
     const isOpen = open.has(d.id);
     const subs = childrenOf(d);
-    const indent = (n: number) => ({ paddingLeft: 4 + n * 14 });
     return (
       <div key={d.id} role="treeitem" aria-expanded={isOpen}>
-        <div className={`deck-item ${classOf === d.id || (!isOpen && studying === d.id) ? 'active' : ''}`} style={indent(level)}>
-          <button
-            className="deck-twisty"
-            aria-label={isOpen ? `Close ${d.name}` : `Open ${d.name}`}
-            onClick={() => (isOpen ? toggle(d.id) : openClass(d))}
-          >
+        <div className={`deck-item ${classOf === d.id || (!isOpen && studying === d.id) ? 'active' : ''}`} style={indent(0)}>
+          <button className="deck-twisty" aria-label={isOpen ? `Close ${d.name}` : `Open ${d.name}`} onClick={() => (isOpen ? toggle(d.id) : openClass(d))}>
             {isOpen ? '▾' : '▸'}
           </button>
           <button
@@ -104,21 +118,14 @@ export function Sidebar({ view, go }: { view: View; go: (v: View) => void }) {
             title={`Open ${d.name}`}
           >
             <span className="deck-label">{baseName(d.name)}</span>
-            <span className="deck-counts num">
-              {c.newCount > 0 && <span className="c-new">{c.newCount}</span>}
-              {due > 0 && <span className="c-review">{due}</span>}
-            </span>
+            {countsOf(d)}
           </button>
-          <span className="deck-actions">
-            <button className="icon-button" onClick={() => setSettingsFor(d.id)} aria-label={`Settings for ${d.name}`} title="Deck settings">
-              <GearIcon size={16} />
-            </button>
-          </span>
+          <span className="deck-actions">{settingsButton(d)}</span>
         </div>
         {isOpen && (
           <div role="group">
             <div className="deck-sub-row">
-              <button className={`deck-sub ${studying === d.id ? 'active' : ''}`} style={indent(level + 1)} onClick={() => go({ name: 'review', deckId: d.id })}>
+              <button className={`deck-sub ${studying === d.id ? 'active' : ''}`} style={indent(1)} onClick={() => go({ name: 'review', deckId: d.id })} title={`Study all of ${baseName(d.name)}`}>
                 {icon(CARDS_ICON, 15)}
                 <span className="deck-label">Decks</span>
                 {subs.length > 0 && <span className="deck-sub-count num">{subs.length}</span>}
@@ -129,9 +136,40 @@ export function Sidebar({ view, go }: { view: View; go: (v: View) => void }) {
                 </button>
               </span>
             </div>
-            {subs.map((s) => renderDeck(s, level + 2))}
+            {subs.map((s) => renderDeck(s, 2))}
           </div>
         )}
+      </div>
+    );
+  };
+
+  /** A deck in a class: click it to study it, + to add cards to it. Decks
+   * inside it (from Anki imports, say) sit under it. */
+  const renderDeck = (d: Deck, level: number) => {
+    const subs = childrenOf(d);
+    const isOpen = open.has(d.id);
+    return (
+      <div key={d.id} role="treeitem" aria-expanded={subs.length ? isOpen : undefined}>
+        <div className={`deck-item deck-leaf ${studying === d.id ? 'active' : ''}`} style={indent(level)}>
+          {subs.length > 0 ? (
+            <button className="deck-twisty" aria-label={isOpen ? `Close ${d.name}` : `Open ${d.name}`} onClick={() => toggle(d.id)}>
+              {isOpen ? '▾' : '▸'}
+            </button>
+          ) : (
+            <span className="deck-twisty" aria-hidden="true" />
+          )}
+          <button className="deck-open" onClick={() => go({ name: 'review', deckId: d.id })} title={`Study ${d.name}`}>
+            <span className="deck-label">{baseName(d.name)}</span>
+            {countsOf(d)}
+          </button>
+          <span className="deck-actions">
+            <button className="icon-button" onClick={() => setAddingTo(d)} aria-label={`Add cards to ${d.name}`} title="Add cards">
+              <PlusIcon />
+            </button>
+            {settingsButton(d)}
+          </span>
+        </div>
+        {isOpen && subs.length > 0 && <div role="group">{subs.map((s) => renderDeck(s, level + 1))}</div>}
       </div>
     );
   };
@@ -163,7 +201,7 @@ export function Sidebar({ view, go }: { view: View; go: (v: View) => void }) {
       </div>
 
       <div className="sidebar-decks" role="tree" aria-label="Classes">
-        {childrenOf(null).map((d) => renderDeck(d, 0))}
+        {childrenOf(null).map((d) => renderClass(d))}
       </div>
 
       <div className="sidebar-foot">
@@ -206,6 +244,11 @@ export function Sidebar({ view, go }: { view: View; go: (v: View) => void }) {
           }}
           onCancel={() => setNewDeckIn(null)}
         />
+      )}
+      {addingTo && (
+        <Modal title={`Add cards to ${baseName(addingTo.name)}`} onClose={() => setAddingTo(null)} wide>
+          <AddCards key={addingTo.id} initialDeckId={addingTo.id} bare />
+        </Modal>
       )}
       {settingsDeck && (
         <Modal title={`${settingsDeck.name} settings`} onClose={() => setSettingsFor(null)} wide>

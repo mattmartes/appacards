@@ -28,6 +28,12 @@ contextBridge.exposeInMainWorld('desktop', {
     restart: () => ipcRenderer.invoke('update:restart'),
     /** { app, installer }: the web app's version and the installer's. */
     version: () => ipcRenderer.invoke('update:version'),
+    /** Looks for a newer version now; resolves to the status. */
+    check: () => ipcRenderer.invoke('update:check'),
+    /** Downloads the newer version found (used from the next start). */
+    install: () => ipcRenderer.invoke('update:install'),
+    /** What the updater is doing right now. */
+    status: () => ipcRenderer.invoke('update:status'),
     /** Calls back with { state, version, ... } as updates arrive; returns a stop function. */
     onStatus: (cb) => {
       const listener = (_e, status) => cb(status);
