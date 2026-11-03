@@ -165,7 +165,7 @@ export function Sidebar({ view, go }: { view: View; go: (v: View) => void }) {
         <button className="icon-button" onClick={() => setImporting(true)} aria-label="Import from Anki" title="Import from Anki (.apkg)">
           {icon('M12 3v12M7 10l5 5 5-5M5 21h14')}
         </button>
-        <button className="icon-button" onClick={() => setCreating(true)} aria-label="Create deck" title="Create deck">
+        <button className="icon-button" onClick={() => setCreating(true)} aria-label="New class" title="New class">
           <PlusIcon />
         </button>
       </div>
@@ -188,14 +188,16 @@ export function Sidebar({ view, go }: { view: View; go: (v: View) => void }) {
       {importing && <ImportAnki onClose={() => setImporting(false)} />}
       {creating && (
         <PromptDialog
-          title="Create deck"
-          label="Deck name"
-          hint="Use :: for subdecks, e.g. Spanish::Verbs"
-          submitLabel="Create"
-          validate={(n) => (col.deckByName(n.split('::').map((s) => s.trim()).join('::')) ? `A deck named “${n}” already exists.` : null)}
+          title="New class"
+          label="Class name"
+          hint="e.g. Biology 241. Add decks to it from its Decks row."
+          submitLabel="Create class"
+          validate={(n) => (col.deckByName(n.split('::').map((s) => s.trim()).join('::')) ? `A class named “${n}” already exists.` : null)}
           onSubmit={async (n) => {
-            await col.addDeck(n);
+            const d = await col.addDeck(n);
             setCreating(false);
+            openClass(d);
+            go({ name: 'class', deckId: d.id });
           }}
           onCancel={() => setCreating(false)}
         />
