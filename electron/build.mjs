@@ -20,7 +20,10 @@ const mac = process.platform === 'darwin';
 ensureKeys();
 
 rmSync(workDir, { recursive: true, force: true });
-const result = spawnSync(`npx electron-builder ${mac ? '--mac' : '--win'} "--config.directories.output=${workDir}"`, {
+// never publish from here: on a build server with a version tag,
+// electron-builder would otherwise try to upload to GitHub itself (the
+// workflow publishes the release, with the signed update)
+const result = spawnSync(`npx electron-builder ${mac ? '--mac' : '--win'} --publish never "--config.directories.output=${workDir}"`, {
   cwd: projectDir,
   stdio: 'inherit',
   shell: true,
