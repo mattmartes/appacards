@@ -16,7 +16,7 @@
     "publish-update": "node electron/publish.mjs"
   },
   "appaUpdates": {
-    "url": "",
+    "url": "https://github.com/mattmartes/appacards/releases/latest/download/latest.json",
     "minShell": "1.1.0"
   },
   "dependencies": {
