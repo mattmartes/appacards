@@ -1,0 +1,10 @@
+node_modules
+dist
+release
+*.tmp
+
+# signing key for app updates: never commit or upload
+update-keys/
+.env*
+*.log
+.DS_Store

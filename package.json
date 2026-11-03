@@ -1,0 +1,99 @@
+{
+  "name": "appa",
+  "productName": "Appa",
+  "description": "Appa — Anki-style flashcards with FSRS scheduling",
+  "private": true,
+  "version": "1.1.0",
+  "type": "module",
+  "main": "electron/main.cjs",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "lint": "oxlint",
+    "preview": "vite preview",
+    "desktop": "node electron/dev.mjs",
+    "desktop:build": "npm run build && node electron/build.mjs",
+    "publish-update": "node electron/publish.mjs"
+  },
+  "appaUpdates": {
+    "url": "",
+    "minShell": "1.1.0"
+  },
+  "dependencies": {
+    "fzstd": "^0.1.1",
+    "idb": "^8.0.4",
+    "jszip": "^3.10.1",
+    "katex": "^0.16.11",
+    "pdfjs-dist": "^6.4.299",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "sql.js": "^1.13.0"
+  },
+  "devDependencies": {
+    "@types/katex": "^0.16.7",
+    "@types/node": "^24.19.2",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@types/sql.js": "^1.4.11",
+    "@vitejs/plugin-react": "^6.1.2",
+    "electron": "^45.0.0",
+    "electron-builder": "^26.15.3",
+    "oxlint": "^1.88.0",
+    "typescript": "~6.0.3",
+    "vite": "^8.3.4"
+  },
+  "build": {
+    "appId": "local.appa",
+    "productName": "Appa",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**",
+      "electron/main.cjs",
+      "electron/preload.cjs",
+      "electron/updater.cjs",
+      "electron/bundle.cjs",
+      "electron/update-key.pem",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "portable": {
+      "artifactName": "${productName} ${version} portable.exe"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "category": "public.app-category.education",
+      "icon": "build/icon-mac.png",
+      "identity": "-"
+    },
+    "dmg": {
+      "artifactName": "${productName} ${version} ${arch}.${ext}"
+    }
+  }
+}

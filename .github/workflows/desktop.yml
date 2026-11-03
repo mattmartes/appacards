@@ -1,0 +1,45 @@
+# Builds the desktop installers on GitHub's machines: the Mac app (Intel and
+# Apple Silicon) on a Mac, and the Windows installers on Windows. Run it from
+# the Actions tab ("Run workflow"), or push a tag like v1.1.0. The finished
+# files are attached to the run as "appa-mac" and "appa-windows".
+#
+# The public update key (electron/update-key.pem) must be committed so the
+# installers can check updates; the private key (update-keys/) must not.
+
+name: Desktop installers
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: macos-latest
+            name: appa-mac
+            files: |
+              release/*.dmg
+              release/*.zip
+          - os: windows-latest
+            name: appa-windows
+            files: release/*.exe
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Check the update key is there
+        shell: bash
+        run: test -f electron/update-key.pem || (echo "electron/update-key.pem is missing: commit it (it's the public key)" && exit 1)
+      - run: npm run desktop:build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: ${{ matrix.files }}
+          if-no-files-found: error

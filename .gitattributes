@@ -1,0 +1,4 @@
+# the same line endings everywhere (Windows here, macOS on the build machines)
+* text=auto eol=lf
+*.png binary
+*.ico binary
