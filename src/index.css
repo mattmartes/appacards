@@ -2874,12 +2874,22 @@ main.app-main {
   background: var(--surface);
 }
 .deck-item:hover .deck-actions,
-.deck-item:focus-within .deck-actions {
+.deck-item:focus-within .deck-actions,
+.deck-sub-row:hover .deck-actions,
+.deck-sub-row:focus-within .deck-actions {
   display: flex;
 }
 .deck-item:hover .deck-counts,
-.deck-item:focus-within .deck-counts {
+.deck-item:focus-within .deck-counts,
+.deck-sub-row:hover .deck-sub-count,
+.deck-sub-row:focus-within .deck-sub-count {
   visibility: hidden;
+}
+/* a deck's Decks row: + adds a deck inside it */
+.deck-sub-row {
+  position: relative;
+  display: flex;
+  align-items: center;
 }
 @media (hover: none) {
   .deck-actions {
@@ -4518,7 +4528,7 @@ a.button-like {
   border-radius: 14px;
   background: var(--surface);
   text-align: left;
-  min-height: 132px;
+  min-height: 96px;
 }
 @media (hover: hover) and (pointer: fine) {
   .class-deck-tile:hover:not(:disabled) {

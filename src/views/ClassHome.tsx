@@ -57,9 +57,6 @@ export function ClassHome({ deckId, go }: { deckId: Id; go: (v: View) => void })
         </div>
         <div className="row">
           <button onClick={() => go({ name: 'add', deckId })}>Add cards</button>
-          <button className="primary" onClick={() => go({ name: 'review', deckId })} disabled={data.due + data.fresh === 0}>
-            Study class
-          </button>
         </div>
       </header>
 
@@ -92,9 +89,6 @@ export function ClassHome({ deckId, go }: { deckId: Id; go: (v: View) => void })
         <div className="class-deck-grid" role="list">
           {data.subs.map((s) => (
             <button key={s.deck.id} role="listitem" className="class-deck-tile" onClick={() => go({ name: 'review', deckId: s.deck.id })} title={`Study ${s.deck.name}`}>
-              <span className="deck-mark" style={{ '--hue': hueOf(s.deck.name) } as React.CSSProperties} aria-hidden="true">
-                {baseName(s.deck.name).trim()[0]?.toUpperCase()}
-              </span>
               <span className="class-deck-name">{baseName(s.deck.name)}</span>
               <span className="class-deck-meta muted num">
                 {s.cards} card{s.cards === 1 ? '' : 's'}

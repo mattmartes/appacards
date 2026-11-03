@@ -45,6 +45,7 @@ export function Sidebar({ view, go }: { view: View; go: (v: View) => void }) {
   const [creating, setCreating] = useState(false);
   const [importing, setImporting] = useState(false);
   const [settingsFor, setSettingsFor] = useState<Id | null>(null);
+  const [newDeckIn, setNewDeckIn] = useState<Deck | null>(null);
 
   const save = (next: Set<Id>) => {
     setOpen(next);
@@ -112,9 +113,6 @@ export function Sidebar({ view, go }: { view: View; go: (v: View) => void }) {
             </span>
           </button>
           <span className="deck-actions">
-            <button className="icon-button" onClick={() => go({ name: 'add', deckId: d.id })} aria-label={`Add cards to ${d.name}`} title="Add cards">
-              <PlusIcon />
-            </button>
             <button className="icon-button" onClick={() => setSettingsFor(d.id)} aria-label={`Settings for ${d.name}`} title="Deck settings">
               <GearIcon size={16} />
             </button>
@@ -127,11 +125,18 @@ export function Sidebar({ view, go }: { view: View; go: (v: View) => void }) {
               <span className="deck-label">Notes</span>
               {files > 0 && <span className="deck-sub-count num">{files}</span>}
             </button>
-            <button className={`deck-sub ${studying === d.id ? 'active' : ''}`} style={indent(level + 1)} onClick={() => go({ name: 'review', deckId: d.id })}>
-              {icon(CARDS_ICON, 15)}
-              <span className="deck-label">Decks</span>
-              {subs.length > 0 && <span className="deck-sub-count num">{subs.length}</span>}
-            </button>
+            <div className="deck-sub-row">
+              <button className={`deck-sub ${studying === d.id ? 'active' : ''}`} style={indent(level + 1)} onClick={() => go({ name: 'review', deckId: d.id })}>
+                {icon(CARDS_ICON, 15)}
+                <span className="deck-label">Decks</span>
+                {subs.length > 0 && <span className="deck-sub-count num">{subs.length}</span>}
+              </button>
+              <span className="deck-actions">
+                <button className="icon-button" onClick={() => setNewDeckIn(d)} aria-label={`New deck in ${d.name}`} title="New deck">
+                  <PlusIcon />
+                </button>
+              </span>
+            </div>
             {subs.map((s) => renderDeck(s, level + 2))}
           </div>
         )}
@@ -193,6 +198,19 @@ export function Sidebar({ view, go }: { view: View; go: (v: View) => void }) {
             setCreating(false);
           }}
           onCancel={() => setCreating(false)}
+        />
+      )}
+      {newDeckIn && (
+        <PromptDialog
+          title={`New deck in ${baseName(newDeckIn.name)}`}
+          label="Deck name"
+          submitLabel="Create"
+          validate={(n) => (col.deckByName(`${newDeckIn.name}::${n.trim()}`) ? `A deck named “${n}” already exists here.` : null)}
+          onSubmit={async (n) => {
+            await col.addDeck(`${newDeckIn.name}::${n.trim()}`);
+            setNewDeckIn(null);
+          }}
+          onCancel={() => setNewDeckIn(null)}
         />
       )}
       {settingsDeck && (
