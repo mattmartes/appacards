@@ -1,25 +1,31 @@
-import { useMemo, useState } from 'react';
+// The Edit screen: every card, grouped by class and then by deck, with a
+// search, bulk actions, a card editor, and Add cards on each deck.
+
+import { Fragment, useMemo, useState } from 'react';
 import { useCollection } from '../lib/collection';
+import { baseName } from '../lib/deckTree';
 import { buildSearch, stripHtml } from '../lib/search';
 import { dayStartMs, today } from '../lib/time';
-import type { Card, Id } from '../lib/types';
+import type { Card, Deck, Id } from '../lib/types';
+import { AddCards } from './AddCards';
 import { CardEditor } from './CardEditor';
-import { PolishDialog } from './Polish';
-import { WordingsDialog } from './WordingsDialog';
+import { Modal } from './Modal';
 
 type SortKey = 'front' | 'deck' | 'due' | 'ivl' | 's' | 'd' | 'r' | 'reps' | 'lapses' | 'created';
 
-const COLUMNS: { key: SortKey; label: string }[] = [
-  { key: 'front', label: 'Front' },
-  { key: 'deck', label: 'Deck' },
-  { key: 'due', label: 'Due' },
-  { key: 'ivl', label: 'Interval' },
-  { key: 's', label: 'Stability' },
-  { key: 'd', label: 'Difficulty' },
-  { key: 'r', label: 'Retrievability' },
-  { key: 'reps', label: 'Reviews' },
-  { key: 'lapses', label: 'Lapses' },
-  { key: 'created', label: 'Created' },
+/** Fixed widths, so the header lines up with the rows whatever is shown;
+ * numbers sit right, under a right-aligned heading. */
+const COLUMNS: { key: SortKey; label: string; width: string; num?: boolean }[] = [
+  { key: 'front', label: 'Front', width: '19%' },
+  { key: 'deck', label: 'Deck', width: '12%' },
+  { key: 'due', label: 'Due', width: '10%' },
+  { key: 'ivl', label: 'Interval', width: '8%', num: true },
+  { key: 's', label: 'Stability', width: '8%', num: true },
+  { key: 'd', label: 'Difficulty', width: '9%', num: true },
+  { key: 'r', label: 'Retention', width: '9%', num: true },
+  { key: 'reps', label: 'Reviews', width: '8%', num: true },
+  { key: 'lapses', label: 'Lapses', width: '7%', num: true },
+  { key: 'created', label: 'Created', width: '10%', num: true },
 ];
 
 function dueLabel(c: Card): string {
@@ -30,17 +36,31 @@ function dueLabel(c: Card): string {
   return new Date(ms).toLocaleDateString();
 }
 
+/** One deck's matching cards, inside its class. */
+interface DeckGroup {
+  deck: Deck;
+  cards: Card[];
+}
+
+/** A class and the decks in it that have matching cards (or all of them,
+ * with no search, so there's somewhere to add cards to). */
+interface ClassGroup {
+  cls: Deck;
+  decks: DeckGroup[];
+  count: number;
+}
+
 export function Browse({ initialQuery }: { initialQuery?: string }) {
   const col = useCollection();
   const [query, setQuery] = useState(initialQuery ?? '');
   const [sort, setSort] = useState<{ key: SortKey; desc: boolean }>({ key: 'created', desc: true });
   const [selected, setSelected] = useState<Set<Id>>(new Set());
   const [editing, setEditing] = useState<Id | null>(null);
-  const [polishing, setPolishing] = useState(false);
-  const [wording, setWording] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
-  // every deck section starts collapsed each time Browse opens
-  const [collapsed, setCollapsed] = useState<Set<Id>>(() => new Set(col.deckList().map((d) => d.id)));
+  /** the deck the add-cards window is open for */
+  const [addingTo, setAddingTo] = useState<Deck | null>(null);
+  // what's open: classes ("c:" + id) and decks ("d:" + id) all start closed
+  // each time Edit opens, and opening a class doesn't open its decks
+  const [opened, setOpened] = useState<Set<string>>(() => new Set());
   const matches = useMemo(() => {
     let match: (c: Card) => boolean;
     try {
@@ -78,34 +98,51 @@ export function Browse({ initialQuery }: { initialQuery?: string }) {
     // col.version changes on every mutation
   }, [query, sort, col, col.version]);
 
-  // Group the sorted matches by deck, in deck-tree order.
-  const groups = useMemo(() => {
+  // Group the sorted matches by class, then by deck, in deck-tree order.
+  const classes = useMemo((): ClassGroup[] => {
     const byDeck = new Map<Id, Card[]>();
     for (const c of matches) {
       const list = byDeck.get(c.deckId);
       if (list) list.push(c);
       else byDeck.set(c.deckId, [c]);
     }
-    return col
-      .deckList()
-      .filter((d) => byDeck.has(d.id))
-      .map((d) => ({ deck: d, cards: byDeck.get(d.id)! }));
-  }, [matches, col]);
+    const searching = query.trim() !== '';
+    const all = col.deckList();
+    return all
+      .filter((d) => !d.name.includes('::'))
+      .map((cls) => {
+        const inside = all.filter((d) => d.name.startsWith(`${cls.name}::`));
+        const decks = [cls, ...inside]
+          .map((deck) => ({ deck, cards: byDeck.get(deck.id) ?? [] }))
+          // with no search every deck shows, so cards can be added to it; the
+          // class's own cards only show when it has some, or has no decks
+          .filter((g) => (searching ? g.cards.length > 0 : g.deck !== cls || g.cards.length > 0 || inside.length === 0));
+        return { cls, decks, count: decks.reduce((n, g) => n + g.cards.length, 0) };
+      })
+      .filter((g) => g.decks.length > 0);
+  }, [matches, col, query]);
 
-  /** cards in visible (expanded) groups, in display order, capped for speed */
+  const isOpen = (key: string) => opened.has(key);
+  /** cards in open classes and decks, in display order, capped for speed */
   const rows = useMemo(() => {
     const out: Card[] = [];
-    for (const g of groups) if (!collapsed.has(g.deck.id)) out.push(...g.cards);
+    for (const g of classes) if (opened.has(`c:${g.cls.id}`)) for (const d of g.decks) if (opened.has(`d:${d.deck.id}`)) out.push(...d.cards);
     return out.slice(0, 2000);
-  }, [groups, collapsed]);
+  }, [classes, opened]);
 
-  const toggleGroup = (deckId: Id) => {
-    const next = new Set(collapsed);
-    if (next.has(deckId)) next.delete(deckId);
-    else next.add(deckId);
-    setCollapsed(next);
+  const toggle = (key: string) => {
+    const next = new Set(opened);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    setOpened(next);
   };
 
+  const mark = (key: SortKey) =>
+    sort.key === key && (
+      <span className="sort-mark" aria-hidden="true">
+        {sort.desc ? '▾' : '▴'}
+      </span>
+    );
   const toggleSort = (key: SortKey) => setSort((s) => ({ key, desc: s.key === key ? !s.desc : false }));
 
   const clickRow = (e: React.MouseEvent, id: Id) => {
@@ -129,13 +166,11 @@ export function Browse({ initialQuery }: { initialQuery?: string }) {
   const anySuspended = ids.some((id) => col.cards.get(id)?.queue === -1);
   const editingCard = editing !== null ? col.cards.get(editing) : undefined;
   const shownIds = new Set(rows.map((c) => c.id));
-  const visibleCount = groups.reduce((n, g) => n + (collapsed.has(g.deck.id) ? 0 : g.cards.length), 0);
-  // AI Polish starts on the selected card's deck, else the searched deck
-  const searchedDeck = /deck:(?:"([^"]+)"|(\S+))/.exec(query);
-  const polishDeckId =
-    (ids.length ? col.cards.get(ids[0])?.deckId : undefined) ??
-    (searchedDeck ? col.deckByName(searchedDeck[1] ?? searchedDeck[2])?.id : undefined) ??
-    groups[0]?.deck.id;
+  const visibleCount = classes.reduce(
+    (n, g) => n + (isOpen(`c:${g.cls.id}`) ? g.decks.reduce((m, d) => m + (isOpen(`d:${d.deck.id}`) ? d.cards.length : 0), 0) : 0),
+    0,
+  );
+  const deckLabel = (deck: Deck, cls: Deck) => (deck.id === cls.id ? 'Not in a deck' : deck.name.slice(cls.name.length + 2).split('::').join(' › '));
 
   return (
     <div style={{ display: 'grid', gap: 12 }}>
@@ -175,72 +210,100 @@ export function Browse({ initialQuery }: { initialQuery?: string }) {
           Ctrl/Shift-click to select several
         </span>
         <span className="spacer" />
-        <button onClick={() => setPolishing(true)} disabled={!col.cards.size} title="Let an AI model suggest clearer, split and extra cards">
-          AI Polish
-        </button>
-        <button onClick={() => setWording(true)} disabled={!col.cards.size} title="Let an AI write other wordings of card questions">
-          AI wordings
-        </button>
-        <button onClick={() => setCollapsed(new Set(groups.map((g) => g.deck.id)))} disabled={!groups.length}>
+        <button onClick={() => setOpened(new Set())} disabled={!opened.size}>
           Collapse all
         </button>
-        <button onClick={() => setCollapsed(new Set())} disabled={!collapsed.size}>
+        <button onClick={() => setOpened(new Set(classes.flatMap((g) => [`c:${g.cls.id}`, ...g.decks.map((d) => `d:${d.deck.id}`)])))} disabled={!classes.length}>
           Expand all
         </button>
       </div>
 
       <div className={`browse ${editingCard ? 'with-editor' : ''}`}>
         <div className="table-wrap">
-          <table className="cards">
+          <table className="cards cards-fixed">
+            <colgroup>
+              {COLUMNS.map((c) => (
+                <col key={c.key} style={{ width: c.width }} />
+              ))}
+            </colgroup>
             <thead>
               <tr>
                 {COLUMNS.map((c) => (
-                  <th key={c.key} onClick={() => toggleSort(c.key)}>
+                  <th key={c.key} title={c.label} className={c.num ? 'num-col' : undefined} onClick={() => toggleSort(c.key)} aria-sort={sort.key === c.key ? (sort.desc ? 'descending' : 'ascending') : undefined}>
                     {c.label}
-                    {sort.key === c.key ? (sort.desc ? ' ▾' : ' ▴') : ''}
+                    {mark(c.key)}
                   </th>
                 ))}
               </tr>
             </thead>
-            {groups.map(({ deck, cards }) => {
-              const isCollapsed = collapsed.has(deck.id);
+            {classes.map(({ cls, decks, count }) => {
+              const classOpen = isOpen(`c:${cls.id}`);
               return (
-                <tbody key={deck.id}>
-                  <tr className="group-row">
+                <tbody key={cls.id}>
+                  <tr className="group-row class-row">
                     <td colSpan={COLUMNS.length}>
-                      <button className="group-toggle" aria-expanded={!isCollapsed} onClick={() => toggleGroup(deck.id)}>
+                      <button className="group-toggle" aria-expanded={classOpen} onClick={() => toggle(`c:${cls.id}`)}>
                         <span className="twisty-icon" aria-hidden="true">
-                          {isCollapsed ? '▸' : '▾'}
+                          {classOpen ? '▾' : '▸'}
                         </span>
-                        {deck.name.split("::").join(" › ")}
-                        <span className="muted num"> · {cards.length}</span>
+                        {cls.icon && (
+                          <span className="class-icon" aria-hidden="true">
+                            {cls.icon}
+                          </span>
+                        )}
+                        {baseName(cls.name)}
+                        <span className="muted num"> · {count}</span>
                       </button>
                     </td>
                   </tr>
-                  {!isCollapsed &&
-                    cards
-                      .filter((c) => shownIds.has(c.id))
-                      .map((c) => {
-                        const r = col.retrievability(c);
-                        return (
-                          <tr
-                            key={c.id}
-                            className={`${selected.has(c.id) ? 'selected' : ''} ${c.queue === -1 ? 'suspended' : ''}`}
-                            onClick={(e) => clickRow(e, c.id)}
-                          >
-                            <td title={stripHtml(c.front)}>{stripHtml(c.front)}</td>
-                            <td>{deck.name.split("::").join(" › ")}</td>
-                            <td className="num">{dueLabel(c)}</td>
-                            <td className="num">{c.type === 0 || c.type === 1 ? '' : `${c.ivl}d`}</td>
-                            <td className="num">{c.stability === null ? '' : `${c.stability.toFixed(1)}d`}</td>
-                            <td className="num">{c.difficulty === null ? '' : `${(((c.difficulty - 1) / 9) * 100).toFixed(0)}%`}</td>
-                            <td className="num">{r === null ? '' : `${(r * 100).toFixed(1)}%`}</td>
-                            <td className="num">{c.reps}</td>
-                            <td className="num">{c.lapses}</td>
-                            <td className="num">{new Date(c.created * 1000).toLocaleDateString()}</td>
+                  {classOpen &&
+                    decks.map(({ deck, cards }) => {
+                      const deckOpen = isOpen(`d:${deck.id}`);
+                      return (
+                        <Fragment key={deck.id}>
+                          <tr className="group-row deck-group-row">
+                            <td colSpan={COLUMNS.length}>
+                              <div className="deck-group-head">
+                                <button className="group-toggle" aria-expanded={deckOpen} onClick={() => toggle(`d:${deck.id}`)}>
+                                  <span className="twisty-icon" aria-hidden="true">
+                                    {deckOpen ? '▾' : '▸'}
+                                  </span>
+                                  {deckLabel(deck, cls)}
+                                  <span className="muted num"> · {cards.length}</span>
+                                </button>
+                                <button className="link group-add" onClick={() => setAddingTo(deck)} title={`Add cards to ${deck.name}`}>
+                                  + Add cards
+                                </button>
+                              </div>
+                            </td>
                           </tr>
-                        );
-                      })}
+                          {deckOpen &&
+                            cards
+                              .filter((c) => shownIds.has(c.id))
+                              .map((c) => {
+                                const r = col.retrievability(c);
+                                return (
+                                  <tr
+                                    key={c.id}
+                                    className={`${selected.has(c.id) ? 'selected' : ''} ${c.queue === -1 ? 'suspended' : ''}`}
+                                    onClick={(e) => clickRow(e, c.id)}
+                                  >
+                                    <td title={stripHtml(c.front)}>{stripHtml(c.front)}</td>
+                                    <td title={deck.name.split('::').join(' › ')}>{deckLabel(deck, cls)}</td>
+                                    <td className="num">{dueLabel(c)}</td>
+                                    <td className="num num-col">{c.type === 0 || c.type === 1 ? '' : `${c.ivl}d`}</td>
+                                    <td className="num num-col">{c.stability === null ? '' : `${c.stability.toFixed(1)}d`}</td>
+                                    <td className="num num-col">{c.difficulty === null ? '' : `${(((c.difficulty - 1) / 9) * 100).toFixed(0)}%`}</td>
+                                    <td className="num num-col">{r === null ? '' : `${(r * 100).toFixed(1)}%`}</td>
+                                    <td className="num num-col">{c.reps}</td>
+                                    <td className="num num-col">{c.lapses}</td>
+                                    <td className="num num-col">{new Date(c.created * 1000).toLocaleDateString()}</td>
+                                  </tr>
+                                );
+                              })}
+                        </Fragment>
+                      );
+                    })}
                 </tbody>
               );
             })}
@@ -258,32 +321,11 @@ export function Browse({ initialQuery }: { initialQuery?: string }) {
           </div>
         )}
       </div>
-      {polishing && (
-        <PolishDialog
-          initialDeckId={polishDeckId}
-          onClose={() => setPolishing(false)}
-          onCreated={(name, n) => {
-            setPolishing(false);
-            setQuery(`deck:"${name}"`);
-            setCollapsed(new Set());
-            setToast(`Created “${name}” with ${n} card${n === 1 ? '' : 's'}.`);
-            setTimeout(() => setToast(null), 4000);
-          }}
-        />
+      {addingTo && (
+        <Modal title={`Add cards to ${baseName(addingTo.name)}`} onClose={() => setAddingTo(null)} wide>
+          <AddCards key={addingTo.id} initialDeckId={addingTo.id} bare />
+        </Modal>
       )}
-      {wording && (
-        <WordingsDialog
-          selected={ids}
-          initialDeckId={polishDeckId}
-          onClose={() => setWording(false)}
-          onDone={(message) => {
-            setWording(false);
-            setToast(message);
-            setTimeout(() => setToast(null), 5000);
-          }}
-        />
-      )}
-      {toast && <div className="toast">{toast}</div>}
     </div>
   );
 }

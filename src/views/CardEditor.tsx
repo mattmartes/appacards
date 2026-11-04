@@ -5,8 +5,6 @@ import { OcclusionEditor } from './OcclusionEditor';
 import type { Card } from '../lib/types';
 import { NoteEditor } from './NoteEditor';
 import { SmartBuilder } from './SmartBuilder';
-import { WordingsEditor } from './WordingsEditor';
-import { canReword } from '../lib/wordings';
 
 export function parseTags(s: string): string[] {
   return [...new Set(s.split(/[\s,]+/).filter(Boolean))];
@@ -22,12 +20,8 @@ export function CardEditor({ card, onDone }: { card: Card; onDone: (updated: Car
   const [tags, setTags] = useState((note?.tags ?? card.tags).join(' '));
   const [deckId, setDeckId] = useState(card.deckId);
   const [error, setError] = useState<string | null>(null);
-  /** this card's other wordings of its front */
-  const [wordings, setWordings] = useState<string[]>(card.altFronts ?? []);
-  const keptWordings = () => {
-    const w = wordings.map((x) => x.trim()).filter(Boolean);
-    return w.length ? w : undefined;
-  };
+  // other wordings of the front aren't edited here any more, but a card keeps any it has
+  const keptWordings = () => card.altFronts;
 
   const save = async () => {
     if (note && nt) {
@@ -126,13 +120,6 @@ export function CardEditor({ card, onDone }: { card: Card; onDone: (updated: Car
         onChange={setValues}
         cloze={(nt?.cloze ?? false) && note?.kind !== 'imageOcclusion'}
       />
-      {canReword(card) && (
-        <WordingsEditor
-          wordings={wordings}
-          onChange={setWordings}
-          hint="For this card only. Each review shows the front or one of these at random. Edit → AI wordings can write them."
-        />
-      )}
       <label className="field">
         Tags
         <input type="text" value={tags} onChange={(e) => setTags(e.target.value)} />

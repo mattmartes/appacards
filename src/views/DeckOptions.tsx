@@ -236,14 +236,8 @@ export function DeckOptions({ deckId, go, onClose }: { deckId: Id; go: (v: View)
             <h1 style={{ margin: 0 }}>Options for {deck.name}</h1>
           </div>
         )}
-        <div className="row" style={{ alignItems: 'flex-end' }}>
-          <label className="field" style={{ flex: 1, minWidth: 200 }}>
-            Deck name
-            <input type="text" value={name} onChange={(e) => setName(e.target.value)} />
-          </label>
-          <button className="link" onClick={() => go({ name: 'browse', query: `deck:"${deck.name}"` })}>
-            Edit cards
-          </button>
+        <div className="deck-options-bar">
+          <input type="text" value={name} onChange={(e) => setName(e.target.value)} aria-label="Deck name" placeholder="Deck name" />
           <button className="icon-button danger" onClick={() => setDeleting(true)} aria-label={`Delete deck ${deck.name}`} title="Delete deck">
             <TrashIcon />
           </button>

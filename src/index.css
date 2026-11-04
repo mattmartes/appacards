@@ -4864,3 +4864,95 @@ a.button-like {
     color: var(--accent);
   }
 }
+
+/* ---- Edit: a class's row, then each deck's, with Add cards on the right */
+table.cards tr.class-row .group-toggle {
+  font-size: 14.5px;
+  padding: 8px;
+}
+table.cards tr.deck-group-row td {
+  background: var(--surface);
+}
+.deck-group-head {
+  display: flex;
+  align-items: center;
+}
+.deck-group-head .group-toggle {
+  flex: 1;
+  min-width: 0;
+  padding-left: 28px;
+  font-weight: 550;
+}
+.group-add {
+  flex: none;
+  padding: 4px 10px;
+  font-size: 13px;
+}
+
+/* ---- deck settings: the name, delete and Save, one even row */
+.deck-options-bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+}
+.deck-options-bar > input,
+.deck-options-bar > button {
+  height: 40px;
+}
+.deck-options-bar > input {
+  width: 100%;
+  font-size: 15px;
+  font-weight: 550;
+}
+.deck-options-bar > .primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 18px;
+  white-space: nowrap;
+}
+.deck-options-bar > .icon-button {
+  width: 40px;
+}
+
+/* ---- Edit table: fixed columns so the header always lines up with the rows */
+table.cards-fixed {
+  table-layout: fixed;
+  min-width: 960px;
+}
+table.cards-fixed th,
+table.cards-fixed td {
+  font-size: 13px;
+  padding: 7px 10px;
+  max-width: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+table.cards-fixed th {
+  font-weight: 600;
+  color: var(--text-2);
+  vertical-align: middle;
+}
+table.cards-fixed .num-col {
+  text-align: right;
+}
+/* the sort arrow sits in the heading's padding, on the side away from the
+   text, so it never pushes a label out of its column */
+table.cards-fixed th .sort-mark {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  right: 2px;
+  font-size: 9px;
+  color: var(--accent);
+}
+table.cards-fixed th.num-col .sort-mark {
+  right: auto;
+  left: 2px;
+}
+table.cards-fixed tr.group-row td {
+  padding: 0;
+}
