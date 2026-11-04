@@ -1,11 +1,13 @@
 import { useRef, useState } from 'react';
 import { useCollection } from '../lib/collection';
+import { readTheme, setTheme, THEMES, type Theme } from '../lib/theme';
 
-/** Background image for the app, with an opacity slider. */
+/** The colour theme, and a background image for the app with an opacity slider. */
 export function Appearance() {
   const col = useCollection();
   const input = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
+  const [theme, setThemeState] = useState<Theme>(readTheme);
   const pct = Math.round(col.prefs.backgroundOpacity * 100);
 
   const choose = async (file: File) => {
@@ -17,6 +19,23 @@ export function Appearance() {
   return (
     <div className="panel" style={{ display: 'grid', gap: 12 }}>
       <h2 style={{ margin: 0 }}>Appearance</h2>
+      <div className="theme-picker" role="radiogroup" aria-label="Colour theme">
+        {THEMES.map((t) => (
+          <button
+            key={t.key}
+            role="radio"
+            aria-checked={theme === t.key}
+            className={`theme-option ${theme === t.key ? 'active' : ''}`}
+            onClick={() => {
+              setTheme(t.key);
+              setThemeState(t.key);
+            }}
+          >
+            <span className={`theme-swatch swatch-${t.key}`} aria-hidden="true" />
+            {t.name}
+          </button>
+        ))}
+      </div>
       <div className="row" style={{ alignItems: 'flex-start', gap: 16 }}>
         <div
           className="bg-thumb"

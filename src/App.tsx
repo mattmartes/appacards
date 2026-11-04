@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { col, useCollection } from './lib/collection';
 import { groundLuminance, haloStrength, nextTone } from './lib/groundTone';
+import { THEME_EVENT } from './lib/theme';
 import { initLocalSave, type UpdateStatus } from './lib/localSave';
 import { RELEASES_URL, updateText } from './views/UpdatePrefs';
 import type { Id, LessonSource } from './lib/types';
@@ -140,11 +141,13 @@ export default function App() {
     measure();
     const scheme = window.matchMedia('(prefers-color-scheme: dark)');
     scheme.addEventListener('change', later);
+    window.addEventListener(THEME_EVENT, later);
     window.addEventListener('resize', later);
     return () => {
       live = false;
       clearTimeout(timer);
       scheme.removeEventListener('change', later);
+      window.removeEventListener(THEME_EVENT, later);
       window.removeEventListener('resize', later);
     };
   }, [bgUrl, bgOpacity]);

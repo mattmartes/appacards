@@ -69,6 +69,28 @@
     --shadow-pop: 0 1px 2px rgb(0 0 0 / 0.4), 0 16px 40px rgb(0 0 0 / 0.5);
   }
 }
+:root[data-scheme='dark'] {
+  color-scheme: dark;
+  --bg: #111110;
+  --surface: #191918;
+  --surface-2: #222220;
+  --surface-hover: #2a2a27;
+  --border: #2b2b28;
+  --border-strong: #3b3b37;
+  --ink: #f1f0ec;
+  --ink-2: #bdbcb4;
+  --ink-3: #8b8a82;
+  --accent: #4a8ae6;
+  --series-1: #4a8ae6;
+  --again: #ef6b69;
+  --hard: #d9a43a;
+  --good: #4cc26b;
+  --easy: #5aa2f0;
+  --new: #5aa2f0;
+  --learn: #ef6b69;
+  --review: #4cc26b;
+  --shadow-pop: 0 1px 2px rgb(0 0 0 / 0.4), 0 16px 40px rgb(0 0 0 / 0.5);
+}
 
 * {
   box-sizing: border-box;
@@ -239,6 +261,48 @@ label.field > span.hint {
   display: grid;
   place-items: center;
   flex-shrink: 0;
+}
+
+/* Preferences → Appearance: each theme as a chip showing its ground and accent */
+.theme-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.theme-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px 6px 6px;
+}
+.theme-option.active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.theme-swatch {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 1px solid rgb(127 127 127 / 0.35);
+  flex: none;
+}
+.swatch-system {
+  background: linear-gradient(135deg, #f5f4f0 50%, #111110 50%);
+}
+.swatch-light {
+  background: linear-gradient(135deg, #fdfdfb 60%, #2f6fd1 60%);
+}
+.swatch-dark {
+  background: linear-gradient(135deg, #191918 60%, #4a8ae6 60%);
+}
+.swatch-blue {
+  background: linear-gradient(135deg, #121a2b 60%, #4f8ff0 60%);
+}
+.swatch-purple {
+  background: linear-gradient(135deg, #1b1529 60%, #9d6ff2 60%);
+}
+.swatch-pink {
+  background: linear-gradient(135deg, #26141e 60%, #ec5c9c 60%);
 }
 
 input[type='range'] {
@@ -519,6 +583,69 @@ h2 {
     --heat-3: #3987e5;
     --heat-4: #86b6ef;
   }
+}
+:root[data-scheme='dark'] {
+  /* on dark, quiet days recede toward the surface (steps 600/500/400/250) */
+  --heat-0: #262624;
+  --heat-1: #184f95;
+  --heat-2: #256abf;
+  --heat-3: #3987e5;
+  --heat-4: #86b6ef;
+}
+
+/* ---------------------------------------------------------------- colour themes
+   Blue, purple and pink are the dark theme with a tinted ground and their own
+   accent (chosen in Preferences → Appearance). The new / learn / due colours
+   stay as they are, so counts read the same in every theme. They come after
+   the heatmap ramps so their own ramps win. */
+:root[data-theme='blue'] {
+  --bg: #0c1220;
+  --surface: #121a2b;
+  --surface-2: #192336;
+  --surface-hover: #202c42;
+  --border: #213049;
+  --border-strong: #2f4163;
+  --ink: #eef2fa;
+  --ink-2: #b4c0d6;
+  --ink-3: #7f8fae;
+  --accent: #4f8ff0;
+  --series-1: #4f8ff0;
+}
+:root[data-theme='purple'] {
+  --bg: #130e1f;
+  --surface: #1b1529;
+  --surface-2: #241c36;
+  --surface-hover: #2c2342;
+  --border: #2e2546;
+  --border-strong: #423461;
+  --ink: #f3effb;
+  --ink-2: #c5badb;
+  --ink-3: #9587b2;
+  --accent: #9d6ff2;
+  --series-1: #9d6ff2;
+}
+:root[data-theme='pink'] {
+  --bg: #1c0e16;
+  --surface: #26141e;
+  --surface-2: #311a27;
+  --surface-hover: #3b2030;
+  --border: #3d2232;
+  --border-strong: #573047;
+  --ink: #fcf0f5;
+  --ink-2: #dfbacb;
+  --ink-3: #b28b9e;
+  --accent: #ec5c9c;
+  --series-1: #ec5c9c;
+}
+:root[data-theme='blue'],
+:root[data-theme='purple'],
+:root[data-theme='pink'] {
+  /* the review heatmap in the theme's own colour */
+  --heat-0: var(--surface-2);
+  --heat-1: color-mix(in srgb, var(--accent) 30%, var(--surface));
+  --heat-2: color-mix(in srgb, var(--accent) 55%, var(--surface));
+  --heat-3: color-mix(in srgb, var(--accent) 80%, var(--surface));
+  --heat-4: color-mix(in srgb, var(--accent) 70%, white);
 }
 .heatmap-panel {
   display: grid;
@@ -2994,6 +3121,10 @@ main.app-main {
     background: hsl(var(--hue) 30% 20%);
   }
 }
+:root[data-scheme='dark'] .deck-mark {
+  color: hsl(var(--hue) 70% 78%);
+  background: hsl(var(--hue) 30% 20%);
+}
 .up-next-text {
   display: grid;
   gap: 1px;
@@ -3218,6 +3349,18 @@ main.app-main {
     color: #9cc0f5;
     background: #18263b;
   }
+}
+:root[data-scheme='dark'] .kind-pdf .file-badge {
+  color: #f4a39c;
+  background: #3a1d1b;
+}
+:root[data-scheme='dark'] .kind-slides .file-badge {
+  color: #f3b78a;
+  background: #3a2616;
+}
+:root[data-scheme='dark'] .kind-doc .file-badge {
+  color: #9cc0f5;
+  background: #18263b;
 }
 .file-name {
   font-size: 13.5px;
@@ -3653,6 +3796,9 @@ a.button-like {
   :root:not([data-theme='light']) .grid-reveal {
     --line: rgb(255 255 255 / 0.28);
   }
+}
+:root[data-scheme='dark'] .grid-reveal {
+  --line: rgb(255 255 255 / 0.28);
 }
 :root[data-theme='dark'] .grid-reveal {
   --line: rgb(255 255 255 / 0.28);
