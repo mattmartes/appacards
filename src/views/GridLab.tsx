@@ -41,6 +41,9 @@ import { FormulaEditor } from './FormulaEditor';
 import { GridPdf } from './GridPdf';
 import { canShowBrowser, NotesBrowser } from './NotesBrowser';
 
+/** whether the notes' toolbars are folded away, remembered on this computer */
+const TOOLS_STORE = 'appa-notes-tools-hidden';
+
 /** How the side beside the notes is set out, remembered on this computer. */
 const SIDE_STORE = 'appa-notes-side';
 function readSide(): { browser: boolean; browserFirst: boolean; split: number } {
@@ -424,6 +427,23 @@ export function GridEditor({
   const [resizing, setResizing] = useState(false);
   useEffect(() => saveSide({ browser: browserOpen, browserFirst, split }), [browserOpen, browserFirst, split]);
   const side = !!pdf || browserOpen;
+  /** the toolbars (images, snap, paper, AI, formatting) folded away for more room */
+  const [toolsHidden, setToolsHidden] = useState(() => {
+    try {
+      return localStorage.getItem(TOOLS_STORE) === '1';
+    } catch {
+      return false;
+    }
+  });
+  const toggleTools = () => {
+    const next = !toolsHidden;
+    setToolsHidden(next);
+    try {
+      localStorage.setItem(TOOLS_STORE, next ? '1' : '0');
+    } catch {
+      // shown again next time
+    }
+  };
   const [request, setRequest] = useState('');
   /** what the AI is doing, while it works */
   const [aiStatus, setAiStatus] = useState<string | null>(null);
@@ -1367,6 +1387,19 @@ export function GridEditor({
       <div className="grid-lab-notes">
       {header}
 
+      <div className="grid-tools-toggle">
+        <button className="link" onClick={toggleTools} aria-expanded={!toolsHidden}>
+          <span aria-hidden="true">{toolsHidden ? '▸' : '▾'}</span> {toolsHidden ? 'Show tools' : 'Hide tools'}
+        </button>
+        {toolsHidden && aiStatus && (
+          <span className="grid-ai-status" role="status">
+            <span className="grid-ai-spinner" aria-hidden="true" />
+            {aiStatus}…
+          </span>
+        )}
+      </div>
+
+      <div className="grid-tools" hidden={toolsHidden}>
       <div className="grid-lab-bar">
         <button onClick={() => fileRef.current?.click()}>Add image</button>
         {!pdf && <button onClick={() => pdfInputRef.current?.click()}>Open a PDF beside</button>}
@@ -1583,6 +1616,7 @@ export function GridEditor({
         <button aria-label="Redo" title="Redo (Ctrl+Shift+Z)" disabled={!future.current.length} onClick={redo}>
           ↷
         </button>
+      </div>
       </div>
       {saveFailed && <div className="polish-error">These notes are too big to keep in this browser; try smaller images.</div>}
 

@@ -5552,3 +5552,46 @@ body {
     display: none;
   }
 }
+
+/* ---- Grid notes: the toolbars fold away under "Hide tools" */
+.grid-tools {
+  display: grid;
+  gap: 14px;
+}
+.grid-tools[hidden] {
+  display: none;
+}
+.grid-tools-toggle {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: -6px 0 -4px;
+  font-size: 13px;
+}
+.grid-tools-toggle .link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+  color: var(--text-2);
+  font-weight: 550;
+}
+
+/* ---- with a PDF or browser beside the notes, the side runs the window's
+   full height, from just under its top edge to just above its bottom */
+.app-content:has(.grid-lab.with-pdf) {
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+.grid-lab.with-pdf > .grid-side {
+  top: 10px;
+  height: calc(100vh - 20px);
+}
+.grid-lab.with-pdf > .grid-lab-notes {
+  padding-top: 18px;
+}
+@media (max-width: 900px) {
+  .grid-lab.with-pdf > .grid-side {
+    height: auto;
+  }
+}
