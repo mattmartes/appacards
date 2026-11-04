@@ -11,6 +11,8 @@ import {
   MARGIN_CELLS,
   PAGE_COLS,
   SHEET_COLS,
+  HIGHLIGHTS,
+  TEXT_COLORS,
   DOC,
   caretAt,
   clickTarget,
@@ -263,20 +265,6 @@ function narrow(key: string, ch: string, bold: boolean): number {
   return k;
 }
 
-const HIGHLIGHTS = [
-  { name: 'Yellow', value: 'oklch(0.9 0.16 95 / 0.6)' },
-  { name: 'Green', value: 'oklch(0.86 0.15 150 / 0.55)' },
-  { name: 'Blue', value: 'oklch(0.83 0.11 235 / 0.6)' },
-  { name: 'Pink', value: 'oklch(0.82 0.13 350 / 0.6)' },
-  { name: 'Purple', value: 'oklch(0.8 0.12 300 / 0.6)' },
-];
-const COLORS = [
-  { name: 'Red', value: 'oklch(0.63 0.2 25)' },
-  { name: 'Orange', value: 'oklch(0.7 0.16 55)' },
-  { name: 'Green', value: 'oklch(0.64 0.15 150)' },
-  { name: 'Blue', value: 'oklch(0.62 0.16 250)' },
-  { name: 'Purple', value: 'oklch(0.62 0.18 305)' },
-];
 const MARKS = [
   { key: 'b', label: 'B', name: 'Bold', keys: 'Ctrl+B' },
   { key: 'i', label: 'I', name: 'Italic', keys: 'Ctrl+I' },
@@ -1573,7 +1561,7 @@ export function GridEditor({
         </select>
         <span className="grid-format-sep" />
         <span className="grid-format-label">Text</span>
-        {COLORS.map((c) => {
+        {TEXT_COLORS.map((c) => {
           const on = !!editing && isOn((s) => s?.color === c.value);
           return (
             <button

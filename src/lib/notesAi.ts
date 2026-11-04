@@ -4,7 +4,7 @@
 // the figures that would help, has a model arrange them, and lays it all out
 // on the grid, sized from each figure's shape and the predicted text heights.
 
-import { CELL_H, CELL_W, DOC, mathOf, MARGIN_CELLS, PAGE_COLS, PAGE_ROWS, SHEET_COLS, cleanStyle, inMargin, layoutAll, layoutText, sheetOf, type GridItem, type ImageBlock, type Rect, type Style, type TextBlock } from './gridText';
+import { CELL_H, CELL_W, DOC, HIGHLIGHTS, TEXT_COLORS, mathOf, MARGIN_CELLS, PAGE_COLS, PAGE_ROWS, SHEET_COLS, cleanStyle, inMargin, layoutAll, layoutText, sheetOf, type GridItem, type ImageBlock, type Rect, type Style, type TextBlock } from './gridText';
 import { renderPdfPages } from './pdfRender';
 import { askModel, type ModelOptions } from './polish';
 import { readMaterial } from './materials';
@@ -13,10 +13,21 @@ import { block, repairJson } from './smart';
 // ---------------------------------------------------------------- markup
 
 /** Formatting written as marks the models know: **bold**, *italic*,
- * __underline__, ~~strike~~ and ==highlight==, a line wrapped in
- * <center>…</center> or <right>…</right> for its alignment, and formulas as
- * $$ … $$ lines, kept as they are. Colours and fonts aren't kept. */
-const styleKey = (s: Style | null | undefined) => (s ? `${+!!s.b}${+!!s.i}${+!!s.u}${+!!s.s}${+!!s.hl}` : '00000');
+ * __underline__, ~~strike~~, a highlight as <mark color="grey">…</mark> and
+ * a text colour as <color red>…</color> (by the toolbar's colour names, so
+ * the model can see and carry on the student's colour scheme), a line
+ * wrapped in <center>…</center> or <right>…</right> for its alignment, and
+ * formulas as $$ … $$ lines, kept as they are. ==highlight== still reads as
+ * the first highlighter. Fonts aren't kept. */
+const colourName = (list: { name: string; value: string }[], value: string) => list.find((c) => c.value === value)?.name.toLowerCase() ?? value;
+const colourValue = (list: { name: string; value: string }[], name: string) => {
+  const n = name.trim().toLowerCase();
+  const known = list.find((c) => c.name.toLowerCase() === n || c.value === name.trim());
+  if (known) return known.value;
+  // a colour the student picked outside the palette comes back as it went out
+  return /^(#[0-9a-f]{3,8}|(rgb|rgba|hsl|hsla|oklch|oklab|lab|lch)\([^)]*\))$/i.test(name.trim()) ? name.trim() : undefined;
+};
+const styleKey = (s: Style | null | undefined) => (s ? `${+!!s.b}${+!!s.i}${+!!s.u}${+!!s.s}|${s.hl ?? ''}|${s.color ?? ''}` : '0000||');
 
 export function toMarkup(t: Pick<TextBlock, 'text' | 'styles'>): string {
   let pos = 0;
@@ -32,8 +43,16 @@ export function toMarkup(t: Pick<TextBlock, 'text' | 'styles'>): string {
         const id = styleKey(s);
         let e = k;
         while (e < start + line.length && styleKey(t.styles?.[e]) === id) e++;
-        const marks = [s?.hl && '==', s?.b && '**', s?.u && '__', s?.s && '~~', s?.i && '*'].filter(Boolean) as string[];
-        out += marks.join('') + t.text.slice(k, e) + [...marks].reverse().join('');
+        const open = [
+          s?.hl && `<mark color="${colourName(HIGHLIGHTS, s.hl)}">`,
+          s?.color && `<color ${colourName(TEXT_COLORS, s.color)}>`,
+          s?.b && '**',
+          s?.u && '__',
+          s?.s && '~~',
+          s?.i && '*',
+        ].filter(Boolean) as string[];
+        const close = [s?.i && '*', s?.s && '~~', s?.u && '__', s?.b && '**', s?.color && '</color>', s?.hl && '</mark>'].filter(Boolean) as string[];
+        out += open.join('') + t.text.slice(k, e) + close.join('');
         k = e;
       }
       // a short line that's all bold reads as a heading
@@ -44,12 +63,13 @@ export function toMarkup(t: Pick<TextBlock, 'text' | 'styles'>): string {
     .join('\n');
 }
 
-const TOKEN = /\*\*|__|~~|==|\*/g;
+const TOKEN = /\*\*|__|~~|==|\*|<mark(?:\s+color="([^"]*)")?>|<\/mark>|<color\s+([^>]+)>|<\/color>/g;
 const MARK_OF: Record<string, 'b' | 'i' | 'u' | 's' | 'hl'> = { '**': 'b', '*': 'i', __: 'u', '~~': 's', '==': 'hl' };
 
 /** Reads the marks back into text and per-letter styles. "# " lines are bold
  * headings and "- " bullets become "• ". A mark with no partner on its line
- * stays as a literal character. */
+ * stays as a literal character. `highlight` is the colour for ==…== and for
+ * a <mark> without a colour the toolbar knows. */
 export function fromMarkup(md: string, highlight: string): Pick<TextBlock, 'text' | 'styles'> {
   let text = '';
   const styles: (Style | null)[] = [];
@@ -80,22 +100,28 @@ export function fromMarkup(md: string, highlight: string): Pick<TextBlock, 'text
     };
     const tokens = [...line.matchAll(TOKEN)];
     const count = new Map<string, number>();
-    for (const t of tokens) count.set(t[0], (count.get(t[0]) ?? 0) + 1);
+    for (const t of tokens) if (t[0] in MARK_OF) count.set(t[0], (count.get(t[0]) ?? 0) + 1);
     const seen = new Map<string, number>();
     let last = 0;
     for (const t of tokens) {
       const m = t[0];
-      const i = (seen.get(m) ?? 0) + 1;
-      seen.set(m, i);
       push(line.slice(last, t.index));
       last = t.index + m.length;
-      if (count.get(m)! % 2 === 1 && i === count.get(m)) {
-        push(m);
-        continue;
+      if (m.startsWith('<mark')) on.hl = (t[1] && colourValue(HIGHLIGHTS, t[1])) || highlight;
+      else if (m === '</mark>') on.hl = undefined;
+      else if (m.startsWith('<color')) on.color = colourValue(TEXT_COLORS, t[2]);
+      else if (m === '</color>') on.color = undefined;
+      else {
+        const i = (seen.get(m) ?? 0) + 1;
+        seen.set(m, i);
+        if (count.get(m)! % 2 === 1 && i === count.get(m)) {
+          push(m);
+          continue;
+        }
+        const key = MARK_OF[m];
+        if (key === 'hl') on.hl = on.hl ? undefined : highlight;
+        else on[key] = on[key] ? undefined : true;
       }
-      const key = MARK_OF[m];
-      if (key === 'hl') on.hl = on.hl ? undefined : highlight;
-      else on[key] = on[key] ? undefined : true;
     }
     push(line.slice(last));
   });
@@ -162,6 +188,12 @@ Keep:
 - the order of ideas, and the student's voice: it should still read as their notes, only cleaner.
 - every fact. Don't remove anything the student wrote.
 
+Follow the student's own formatting system before anything below. Read all the notes first and work out the conventions they already use, then apply them consistently everywhere, including to what you add or restructure:
+- colours: which kinds of content get which highlight or text colour (e.g. terms in <color red>, definitions in <mark color="grey">, examples in <mark color="green">, formulas or dates in blue). Give every term, definition, example etc. the colour the student's pattern gives that kind of thing, including ones they missed. Don't bring in colours the student doesn't use; where the notes use no colours, highlight only as described below, in yellow.
+- lists: their bullet character, how far they indent sub-points and with what (e.g. "  – " under "- "), numbered or not, and how they nest. Keep using exactly that.
+- headings, bold, italics, underlines, abbreviations and symbols: the same way and about as often as they do.
+Where the notes have no habit of their own for something, use the defaults below.
+
 Clean up the wording:
 - fix spelling, grammar, punctuation and capitalisation, and expand unclear shorthand where the meaning is obvious (keep common abbreviations like e.g., w/, →).
 - turn run-on lines and half-sentences into clear, compact points; split a crammed line into several points.
@@ -172,19 +204,20 @@ Give the notes structure, and don't hold back:
 - bullets as "- ", with related detail indented under its point two spaces per level ("  - ", "    - "), so the notes show what belongs to what. Indent generously: examples, sub-types, causes and consequences, and details all sit indented under the point they belong to, never flat beside it.
 - number anything that's a sequence, a process, steps, stages, ranked items or a count the notes mention ("three types of …"): "1. ", "2. ", with sub-points indented under them.
 - **bold** every key term where it's defined or first matters, as "**Term**: meaning" for definitions, and bold the few words in a point that carry it.
-- ==highlight== the facts most worth remembering: the definition, result, rule or number an exam would ask for. Use it in every topic, usually two or three highlights each, on the few key words rather than whole sentences.
+- <mark color="yellow">highlight</mark> the facts most worth remembering: the definition, result, rule or number an exam would ask for. Use it in every topic, usually two or three highlights each, on the few key words rather than whole sentences. (Follow the student's colour scheme instead where they have one.)
+- colours: highlights are written <mark color="NAME">…</mark> and coloured text <color NAME>…</color>, with NAME one of yellow, green, blue, pink, purple or grey for highlights and red, orange, green, blue, purple or grey for text. Keep every colour the student used, including any other colour value exactly as given, and close each tag on the same line it opens.
 - *italic* for species names, titles and emphasis; __underline__ and ~~strikethrough~~ only where the student used them.
 - one blank line between topics, none inside a topic's lists.
 - a line of ${line} dashes on its own ("${'-'.repeat(line)}") draws a ruled line across the page: put one between the major parts of the notes (where the subject shifts, not between every heading), and a shorter run of dashes can underline a title.
 - tables as plain columns lined up with spaces, at most ${line} letters wide, with no | or --- borders, when the notes compare things side by side.
 - <center>…</center> around a whole line centres it, <right>…</right> right-aligns it. Use them where it reads better: a title at the top, a key formula's label, a short standalone definition or quote. Most lines stay left-aligned.
-- maths: a formula, equation or chemical equation worth seeing properly goes on a line of its own as LaTeX between $$ and $$ (e.g. $$E = mc^2$$, $$\\frac{dy}{dx} = 2x$$, $$6CO_2 + 6H_2O \\rightarrow C_6H_{12}O_6 + 6O_2$$); it's drawn as a centred math block. Turn formulas the student wrote out in plain text into this. Small inline maths in a sentence stays plain text (x², a/b, →).
+- maths: a formula, equation or chemical equation worth seeing properly goes on a line of its own as LaTeX between $$ and $$ (e.g. $$x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}$$, $$\\frac{dy}{dx} = \\lim_{h \\to 0} \\frac{f(x+h) - f(x)}{h}$$, $$\\bar{x} = \\frac{1}{n}\\sum_{i=1}^{n} x_i$$); it's drawn as a centred math block. Use LaTeX only where plain text can't show it well: fractions, roots, sums, integrals, limits, matrices, multi-line working, or a long equation. Anything simple stays plain text, inline or on its own line, written with Unicode: superscripts and subscripts (x², x³, x₁, xₙ, H₂O, CO₂, 10⁻³), hats and bars (p̂, x̄, ȳ), Greek letters (μ, σ, Δ, π, λ), and symbols (→, ⇌, ≤, ≥, ≠, ≈, ±, ×, ÷, √x, °). So write "p̂ = x/n", "σ² is the variance" and "H₂O → H⁺ + OH⁻" as text, not LaTeX. Turn a formula the student wrote out in plain text into LaTeX only when it needs it by that rule.
 
 Course material: you may also get the text of the PDFs the notes are on (lecture slides, readings), each page tagged like [f1 p3]. Use it to fill the gaps and blanks the notes imply and to get facts and terms right, never to add topics the notes don't touch.
 
 Requests: the student may write requests to you in the notes, in [[double brackets]] or on a line starting "AI:". Do what they ask (expand, summarise, add an example, make a table, …) where they asked, then remove the request. Also follow any requests given with the notes.
 
-The notes come as blocks, each in a <notes id="..."> tag, using the same marks for the formatting they already have. Reply with every block, polished, in the same tags and nothing else:
+The notes come as blocks, each in a <notes id="..."> tag, using the same marks for the formatting they already have (colours as the <mark color> and <color> tags above). Reply with every block, polished, in the same tags and nothing else:
 <notes id="t1">...</notes>`;
 
 /** Polishes text blocks; returns each block's new markup by id. */
@@ -842,7 +875,7 @@ You get the student's notes so far and the text of the PDFs they're taking notes
 2. Study the student's style closely and copy it: how much they write per page, headings or not (and how they word them), bullets or sentences, how deep the bullets nest, their abbreviations and symbols (→, w/, b/c, ≈, e.g.), capitalisation, how they mark key terms and definitions, which marks they use and how often, their level of detail, what kinds of content they skip (title pages, outlines, admin, references, examples?), and their voice (questions to themselves, "!!", reminders).
 3. Write notes for the rest of the PDF, from where they stopped to the end, in that style, as if the same student kept going. Don't repeat what's covered. Use only what's in the PDF. Skip the kinds of pages the student skipped.
 
-The notes show on a grid of monospace letters about ${line} letters wide. Formatting marks: "# " starts a heading line, **bold**, *italic*, __underline__, ~~strike~~, ==highlight==, "- " bullets, <center>…</center> around a centred line, and $$ … $$ around a LaTeX formula on its own line. Use only the marks the student uses, except that formulas always go in $$ … $$.
+The notes show on a grid of monospace letters about ${line} letters wide. Formatting marks: "# " starts a heading line, **bold**, *italic*, __underline__, ~~strike~~, a highlight as <mark color="NAME">…</mark> and coloured text as <color NAME>…</color> (each closed on the line it opens), "- " bullets, <center>…</center> around a centred line, and $$ … $$ around a LaTeX formula on its own line. Use only the marks the student uses, and their colour scheme exactly: if their terms are red and their definitions highlighted grey, so are yours. LaTeX only for what plain text can't show (fractions, roots, sums, integrals, matrices); simple maths stays plain text with Unicode: x², x₁, H₂O, p̂, x̄, σ, →, ≤.
 
 Reply in exactly this format:
 <covered>the pages the notes already cover, e.g. 1-6, or with several files "file 1, file 2 pages 1-4"</covered>

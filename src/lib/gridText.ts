@@ -15,6 +15,25 @@ export const PAGE_ROWS = 34;
 export const MARGIN_CELLS = 2;
 /** The grid's width: a page's line and its side margins. */
 export const SHEET_COLS = PAGE_COLS + 2 * MARGIN_CELLS;
+
+/** The highlighter and text colours in Grid notes' toolbar. Their names are
+ * also how the AI reads and writes them (see toMarkup in notesAi.ts). */
+export const HIGHLIGHTS = [
+  { name: 'Yellow', value: 'oklch(0.9 0.16 95 / 0.6)' },
+  { name: 'Green', value: 'oklch(0.86 0.15 150 / 0.55)' },
+  { name: 'Blue', value: 'oklch(0.83 0.11 235 / 0.6)' },
+  { name: 'Pink', value: 'oklch(0.82 0.13 350 / 0.6)' },
+  { name: 'Purple', value: 'oklch(0.8 0.12 300 / 0.6)' },
+  { name: 'Grey', value: 'oklch(0.82 0.01 260 / 0.55)' },
+];
+export const TEXT_COLORS = [
+  { name: 'Red', value: 'oklch(0.63 0.2 25)' },
+  { name: 'Orange', value: 'oklch(0.7 0.16 55)' },
+  { name: 'Green', value: 'oklch(0.64 0.15 150)' },
+  { name: 'Blue', value: 'oklch(0.62 0.16 250)' },
+  { name: 'Purple', value: 'oklch(0.62 0.18 305)' },
+  { name: 'Grey', value: 'oklch(0.58 0.01 260)' },
+];
 /** The rows text skips: just the top margin, as the notes are one
  * continuous page. (They used to skip a margin at each printed page's top
  * and bottom too, which left odd gaps mid-paragraph.) */
