@@ -210,6 +210,39 @@ export async function polishNotes(
   return out;
 }
 
+/** How much of the notes on each side of a selection goes along, so the
+ * model sees what the part sits between. */
+const AROUND_CHARS = 1500;
+
+/** Polishes only the part of the notes the student selected; the rest goes
+ * along for context and comes back untouched. Returns the part's new markup. */
+export async function polishSelection(
+  key: string,
+  model: ModelOptions,
+  part: { before: string; markup: string; after: string },
+  request: string,
+  line: number,
+  signal: AbortSignal,
+  /** the open PDFs, for context */
+  pdfs: NotesPdf[] = [],
+): Promise<string> {
+  const material = pdfs.length ? (await pdfsText(pdfs, POLISH_PDF_CHARS)).text : '';
+  const before = part.before.slice(-AROUND_CHARS);
+  const after = part.after.slice(0, AROUND_CHARS);
+  const user =
+    (material ? `The course material the notes are on:\n<material>\n${material}\n</material>\n\n` : '') +
+    (before.trim() ? `The notes just before the selected part (context only, don't change or repeat it):\n<before>\n${before}\n</before>\n\n` : '') +
+    `<notes id="t1">\n${part.markup}\n</notes>` +
+    (after.trim() ? `\n\nThe notes just after it (context only, don't change or repeat it):\n<after>\n${after}\n</after>` : '') +
+    `\n\nThe student selected only the part in the <notes> tag. Polish just that part, so it fits back in the same place: keep its topic and roughly its length, don't add a title for the whole page, and don't bring in anything from the context around it.` +
+    (request.trim() ? `\n\nRequests from the student: ${request.trim()}` : '');
+  const reply = await askModel(key, { ...model, jsonMode: false }, user, signal, POLISH_PROMPT(line), 16000);
+  if (reply.truncated) throw new Error('The polished part was cut off. Try selecting less.');
+  const m = /<notes id="t1">\n?([\s\S]*?)\n?<\/notes>/.exec(reply.text);
+  if (!m) throw new Error("The model's reply had no notes in it. Try again.");
+  return m[1];
+}
+
 // ---------------------------------------------------------------- figures
 
 export type FigureKind = 'diagram' | 'chart' | 'photo' | 'illustration' | 'table' | 'equation' | 'decorative' | 'yours';
@@ -625,13 +658,12 @@ const fromPdf = (f: Figure) => (f.page ? { fromPdf: f.page } : {});
  * apart. Each figure starts beside the top of its section (under the
  * heading) and the text of that section, and of the ones after it while the
  * figure lasts, wraps around it. Figures never share rows unless there's a
- * full column of text between them, and never run over a page break. */
+ * full column of text between them. */
 export function buildLayout(sections: Section[], placements: Placement[], line: number): GridItem[] {
   const images: ImageBlock[] = [];
   const taken: Rect[] = [];
-  const pageOf = (r: number) => Math.floor(r / PAGE_ROWS);
   const clash = (c: Rect) =>
-    (c.height <= PAGE_ROWS - 2 * MARGIN_CELLS && (pageOf(c.row) !== pageOf(c.row + c.height - 1) || inMargin(c.row) || inMargin(c.row + c.height - 1))) ||
+    inMargin(c.row) ||
     taken.some(
       (o) =>
         c.row <= o.row + o.height && o.row <= c.row + c.height && !(c.col >= o.col + o.width + MIN_BESIDE || o.col >= c.col + c.width + MIN_BESIDE),

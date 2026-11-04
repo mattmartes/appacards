@@ -11,7 +11,6 @@ import {
   MARGIN_CELLS,
   PAGE_COLS,
   SHEET_COLS,
-  PAGE_ROWS,
   DOC,
   caretAt,
   clickTarget,
@@ -35,7 +34,7 @@ import {
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
 import { addLabPdf, loadLabPdfs, newPdfId, removeLabPdf, saveLabTabs, type LabPdf } from '../lib/labPdf';
-import { fillNotes, fromMarkup, pageLine, polishInPlace, polishWithFigures } from '../lib/notesAi';
+import { fillNotes, fromMarkup, pageLine, polishInPlace, polishSelection, polishWithFigures, toMarkup } from '../lib/notesAi';
 import { DEFAULT_MODEL, savedKey, type ModelInfo, type ModelOptions } from '../lib/polish';
 import { useModels } from './AiPrefs';
 import { FormulaEditor } from './FormulaEditor';
@@ -732,6 +731,8 @@ export function GridEditor({
 
   const runAi = async (mode: 'polish' | 'figures' | 'fill') => {
     const withFigures = mode === 'figures';
+    // with text selected, Polish works on just that part
+    const part = mode === 'polish' && sel ? sel : null;
     const key = savedKey();
     if (!key) return setAiError('Add your OpenRouter API key in Preferences → AI first.');
     aiAbort.current?.abort();
@@ -739,7 +740,7 @@ export function GridEditor({
     aiAbort.current = ctrl;
     setAiError(null);
     setAiReport(null);
-    setAiStatus(mode === 'polish' ? 'Polishing the notes' : 'Starting');
+    setAiStatus(part ? 'Polishing the selection' : mode === 'polish' ? 'Polishing the notes' : 'Starting');
     const info = models.find((m) => m.id === initial);
     const text = modelOptions(initial, info);
     // the pages need a model that can see; the default one can
@@ -791,6 +792,31 @@ export function GridEditor({
         if (ctrl.signal.aborted) return;
         await present(() => commitAll(r.items));
         setAiReport(`${r.report} Ctrl+Z puts your notes back.`);
+      } else if (part) {
+        const [a, b] = part;
+        const styles = stylesOf(sheet);
+        const slice = (from: number, to: number) => ({ text: sheet.text.slice(from, to), styles: styles.slice(from, to) });
+        const md = await polishSelection(
+          key,
+          text,
+          { before: toMarkup(slice(0, a)), markup: toMarkup(slice(a, b)), after: toMarkup(slice(b, sheet.text.length)) },
+          request,
+          pageLine(cols),
+          ctrl.signal,
+          pdfs,
+        );
+        if (ctrl.signal.aborted) return;
+        const polished = fromMarkup(md, HIGHLIGHTS[0].value);
+        const newStyles = polished.styles ?? new Array<Style | null>(polished.text.length).fill(null);
+        const next = {
+          ...sheet,
+          text: sheet.text.slice(0, a) + polished.text + sheet.text.slice(b),
+          styles: [...styles.slice(0, a), ...newStyles, ...styles.slice(b)],
+        };
+        // only the selected part is redrawn; the rest of the page stays put
+        const from = caretAt(sheetLayout, a)?.row ?? 0;
+        await present(() => commitAll(items.map((it) => (it.id === DOC ? next : it))), { keep: new Set(images.map((i) => i.id)), from });
+        setAiReport('Polished the selected part. Ctrl+Z puts it back.');
       } else {
         const next = await polishInPlace(key, text, formulasIntoText(items, cols), request, cols, HIGHLIGHTS[0].value, ctrl.signal, pdfs);
         if (ctrl.signal.aborted) return;
@@ -1200,8 +1226,6 @@ export function GridEditor({
         })
         .map((b) => ({ ...b, r: b.row - revealFrom }))
       : [];
-  /** printed pages: where each page break falls, under the notes so far */
-  const pageBreaks = Array.from({ length: Math.floor(rows / PAGE_ROWS) }, (_, k) => (k + 1) * PAGE_ROWS);
 
   /** each distinct row's letters, drawn once */
   const rowCells = useRef(new Map<string, ReactNode[]>());
@@ -1364,10 +1388,18 @@ export function GridEditor({
         <button
           className="grid-ai-go"
           disabled={!!aiStatus}
+          // keep the selection: Polish works on it when there is one
+          onMouseDown={block}
           onClick={() => void runAi('polish')}
-          title={pdf ? 'Tidy the formatting and wording, keeping your order, using the open PDFs to fill gaps' : 'Tidy the formatting and wording, keeping your order'}
+          title={
+            sel
+              ? 'Tidy just the selected text, leaving the rest of the notes as they are'
+              : pdf
+                ? 'Tidy the formatting and wording, keeping your order, using the open PDFs to fill gaps'
+                : 'Tidy the formatting and wording, keeping your order'
+          }
         >
-          ✦ Polish
+          {sel ? '✦ Polish selection' : '✦ Polish'}
         </button>
         <button
           className="grid-ai-go"
@@ -1549,12 +1581,6 @@ export function GridEditor({
             <div className="grid-reveal-lines" />
           </div>
         )}
-
-        {pageBreaks.map((r) => (
-          <div key={r} className="grid-page-break" aria-hidden="true" style={{ top: r * CELL_H }}>
-            <span>Page {r / PAGE_ROWS + 1}</span>
-          </div>
-        ))}
 
         {items.map((it) => {
           const selected = it.id === active;

@@ -15,11 +15,10 @@ export const PAGE_ROWS = 34;
 export const MARGIN_CELLS = 2;
 /** The grid's width: a page's line and its side margins. */
 export const SHEET_COLS = PAGE_COLS + 2 * MARGIN_CELLS;
-/** The rows at the top and bottom of each page that text skips. */
-export const inMargin = (row: number) => {
-  const r = row % PAGE_ROWS;
-  return r < MARGIN_CELLS || r >= PAGE_ROWS - MARGIN_CELLS;
-};
+/** The rows text skips: just the top margin, as the notes are one
+ * continuous page. (They used to skip a margin at each printed page's top
+ * and bottom too, which left odd gaps mid-paragraph.) */
+export const inMargin = (row: number) => row < MARGIN_CELLS;
 
 export interface Cell {
   col: number;
@@ -410,12 +409,8 @@ export function clickTarget(
   obstacles: Rect[],
 ): { at: number; fill: string; cell: Cell } {
   const rowStart = (r: number) => freeSpans(r, sheet.col, sheet.col + sheet.width, obstacles)[0]?.[0] ?? sheet.col;
-  // a click in a margin goes to the nearest row text can use
-  if (inMargin(cell.row)) {
-    const top = cell.row - (cell.row % PAGE_ROWS);
-    const r = cell.row % PAGE_ROWS < MARGIN_CELLS ? top + MARGIN_CELLS : top + PAGE_ROWS + MARGIN_CELLS;
-    cell = { col: cell.col, row: r };
-  }
+  // a click in the top margin goes to the first row text can use
+  if (inMargin(cell.row)) cell = { col: cell.col, row: MARGIN_CELLS };
   cell = { col: Math.max(sheet.col, Math.min(sheet.col + sheet.width - 1, cell.col)), row: cell.row };
   const last = layout.end.row;
   if (cell.row > last) {
