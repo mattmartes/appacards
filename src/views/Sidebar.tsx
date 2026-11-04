@@ -105,20 +105,18 @@ export function Sidebar({ view, go }: { view: View; go: (v: View) => void }) {
   const renderClass = (d: Deck) => {
     const isOpen = open.has(d.id);
     const subs = childrenOf(d);
+    // the class's name and its Decks row both lead to its homepage
+    const openClassPage = (c: Deck) => {
+      openClass(c);
+      go({ name: 'class', deckId: c.id });
+    };
     return (
       <div key={d.id} role="treeitem" aria-expanded={isOpen}>
         <div className={`deck-item ${classOf === d.id || (!isOpen && studying === d.id) ? 'active' : ''}`} style={indent(0)}>
           <button className="deck-twisty" aria-label={isOpen ? `Close ${d.name}` : `Open ${d.name}`} onClick={() => (isOpen ? toggle(d.id) : openClass(d))}>
             {isOpen ? '▾' : '▸'}
           </button>
-          <button
-            className="deck-open"
-            onClick={() => {
-              openClass(d);
-              go({ name: 'class', deckId: d.id });
-            }}
-            title={`Open ${d.name}`}
-          >
+          <button className="deck-open" onClick={() => openClassPage(d)} title={`Open ${d.name}`}>
             {d.icon && (
               <span className="class-icon" aria-hidden="true">
                 {d.icon}
@@ -132,7 +130,7 @@ export function Sidebar({ view, go }: { view: View; go: (v: View) => void }) {
         {isOpen && (
           <div role="group">
             <div className="deck-sub-row">
-              <button className={`deck-sub ${studying === d.id ? 'active' : ''}`} style={indent(1)} onClick={() => go({ name: 'review', deckId: d.id })} title={`Study all of ${baseName(d.name)}`}>
+              <button className={`deck-sub ${studying === d.id ? 'active' : ''}`} style={indent(1)} onClick={() => openClassPage(d)} title={`Open ${baseName(d.name)}`}>
                 {icon(CARDS_ICON, 15)}
                 <span className="deck-label">Decks</span>
                 {subs.length > 0 && <span className="deck-sub-count num">{subs.length}</span>}
