@@ -4842,3 +4842,25 @@ a.button-like {
   margin: 0;
   font-size: 13px;
 }
+
+/* ---- deck settings: the Advanced toggle in front of Anki's other options */
+.advanced-toggle {
+  justify-self: start;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  background: none;
+  padding: 4px 2px;
+  font-weight: 600;
+  color: var(--text);
+}
+.advanced-toggle .muted {
+  font-weight: 400;
+}
+@media (hover: hover) and (pointer: fine) {
+  .advanced-toggle:hover:not(:disabled) {
+    background: none;
+    color: var(--accent);
+  }
+}

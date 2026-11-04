@@ -32,16 +32,20 @@ interface Limits {
   review: number;
   new: number;
   capNewToReview: boolean;
+  /** a deck on a due-date plan keeps its own budget: its parents' limits
+   * don't cap it, and its cards don't count against theirs */
+  independent?: boolean;
 }
 
 /** Remaining limits for one deck (RemainingLimits::new_for_normal_deck_v3).
  * `newLeft` is the deck's unseen new cards (with its subdecks'), for a
- * due-date plan, which takes the place of the deck's usual new cards/day. */
+ * due-date plan, which takes the place of the deck's usual new cards/day
+ * and lifts its review limit: every review due is shown. */
 export function remainingLimits(deck: Deck, preset: Preset, prefs: Preferences, today: number, newLeft = 0): Limits {
   const dayLimit = (l: Deck['reviewLimitToday']) => (l && l.day === today ? l.limit : null);
   const counts = deck.today.day === today ? deck.today : { newDone: 0, revDone: 0 };
   const planned = planNewLimit(deck.dueDate, today, newLeft + counts.newDone);
-  let review = dayLimit(deck.reviewLimitToday) ?? deck.reviewLimit ?? preset.reviewsPerDay;
+  let review = planned !== null ? Infinity : (dayLimit(deck.reviewLimitToday) ?? deck.reviewLimit ?? preset.reviewsPerDay);
   let newLimit = dayLimit(deck.newLimitToday) ?? planned ?? deck.newLimit ?? preset.newPerDay;
   review -= counts.revDone;
   newLimit -= counts.newDone;
@@ -50,7 +54,7 @@ export function remainingLimits(deck: Deck, preset: Preset, prefs: Preferences, 
     review -= counts.newDone;
     newLimit = Math.min(newLimit, review);
   }
-  return { review: Math.max(review, 0), new: Math.max(newLimit, 0), capNewToReview: !ignore };
+  return { review: Math.max(review, 0), new: Math.max(newLimit, 0), capNewToReview: !ignore, independent: planned !== null };
 }
 
 class LimitTree {
@@ -76,12 +80,19 @@ class LimitTree {
       this.parent.set(d.id, parentDeck?.id ?? null);
       if (parentDeck) {
         const p = this.limits.get(parentDeck.id)!;
-        own.review = Math.min(own.review, p.review);
-        own.new = Math.min(own.new, p.new);
+        if (!own.independent) {
+          own.review = Math.min(own.review, p.review);
+          own.new = Math.min(own.new, p.new);
+        }
         this.children.set(parentDeck.id, [...(this.children.get(parentDeck.id) ?? []), d.id]);
       }
       this.limits.set(d.id, own);
     }
+  }
+
+  /** some deck keeps its own budget, so the root running out isn't the end */
+  get hasIndependent() {
+    return [...this.limits.values()].some((l) => l.independent);
   }
 
   get(deckId: Id, kind: 'review' | 'new') {
@@ -92,7 +103,7 @@ class LimitTree {
   decrement(deckId: Id, kind: 'review' | 'new') {
     let id: Id | null | undefined = deckId;
     while (id != null) {
-      const l = this.limits.get(id)!;
+      const l: Limits = this.limits.get(id)!;
       const before = { ...l };
       if (kind === 'review') {
         l.review = Math.max(l.review - 1, 0);
@@ -101,13 +112,14 @@ class LimitTree {
         l.new = Math.max(l.new - 1, 0);
       }
       if ((before.review > 0 && l.review === 0) || (before.new > 0 && l.new === 0)) this.capDescendants(id, l);
-      id = this.parent.get(id);
+      id = l.independent ? null : this.parent.get(id);
     }
   }
 
   private capDescendants(id: Id, cap: Limits) {
     for (const child of this.children.get(id) ?? []) {
       const l = this.limits.get(child)!;
+      if (l.independent) continue;
       l.review = Math.min(l.review, cap.review);
       l.new = Math.min(l.new, cap.new);
       this.capDescendants(child, cap);
@@ -184,6 +196,7 @@ export function buildQueue(rootId: Id, ctx: QueueContext): BuiltQueue {
   const buriedBySibling = (c: Card, enabled: boolean) => enabled && c.noteId !== undefined && seenNotes.has(c.noteId);
   [...learnNow, ...learnAhead].forEach(markSeen);
 
+  const keepGathering = limits.hasIndependent;
   const take = (list: Card[], kind: 'review' | 'new', bury: (c: Card) => boolean) => {
     const out: Card[] = [];
     for (const c of list) {
@@ -192,7 +205,7 @@ export function buildQueue(rootId: Id, ctx: QueueContext): BuiltQueue {
       out.push(c);
       markSeen(c);
       limits.decrement(c.deckId, kind);
-      if (kind === 'new' && limits.get(rootId, 'new') <= 0) break;
+      if (kind === 'new' && limits.get(rootId, 'new') <= 0 && !keepGathering) break;
     }
     return out;
   };
