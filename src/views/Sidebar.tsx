@@ -14,6 +14,7 @@ import { ClassDialog } from './ClassDialog';
 import { NewDeckDialog } from './NewDeckDialog';
 import { DeckOptions } from './DeckOptions';
 import { ImportAnki } from './ImportAnki';
+import { ImportDialog } from './ImportDialog';
 import { ChartIcon, GearIcon, Modal, PlusIcon } from './Modal';
 
 const icon = (d: string, size = 16) => (
@@ -46,6 +47,7 @@ export function Sidebar({ view, go }: { view: View; go: (v: View) => void }) {
   const [open, setOpen] = useState<Set<Id>>(readOpen);
   const [creating, setCreating] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [importingAnki, setImportingAnki] = useState(false);
   const [settingsFor, setSettingsFor] = useState<Id | null>(null);
   const [newDeckIn, setNewDeckIn] = useState<Deck | null>(null);
   /** the deck the add-cards window is open for */
@@ -263,7 +265,7 @@ export function Sidebar({ view, go }: { view: View; go: (v: View) => void }) {
 
       <div className="sidebar-group">
         <span>Classes</span>
-        <button className="icon-button" onClick={() => setImporting(true)} aria-label="Import from Anki" title="Import from Anki (.apkg)">
+        <button className="icon-button" onClick={() => setImporting(true)} aria-label="Import cards" title="Import from Anki or Quizlet">
           {icon('M12 3v12M7 10l5 5 5-5M5 21h14')}
         </button>
         <button className="icon-button" onClick={() => setCreating(true)} aria-label="New class" title="New class">
@@ -286,7 +288,28 @@ export function Sidebar({ view, go }: { view: View; go: (v: View) => void }) {
         </button>
       </div>
 
-      {importing && <ImportAnki onClose={() => setImporting(false)} />}
+      {importing && (
+        <ImportDialog
+          onAnki={() => {
+            setImporting(false);
+            setImportingAnki(true);
+          }}
+          onDone={(classId) => {
+            setImporting(false);
+            const c = col.decks.get(classId);
+            if (c) {
+              openClass(c);
+              go({ name: 'class', deckId: c.id });
+            }
+          }}
+          onClose={() => setImporting(false)}
+        />
+      )}
+      {importingAnki && (
+        <Modal title="Import from Anki" onClose={() => setImportingAnki(false)} wide>
+          <ImportAnki bare onClose={() => setImportingAnki(false)} />
+        </Modal>
+      )}
       {creating && (
         <ClassDialog
           validate={(n) => (col.deckByName(n.split('::').map((s) => s.trim()).join('::')) ? `A class named “${n}” already exists.` : null)}

@@ -1,7 +1,8 @@
 import { useRef, useState } from 'react';
 import { importAnki, previewAnkiFile, type ImportPreview, type ImportSummary } from '../lib/importAnki';
 
-export function ImportAnki({ onClose }: { onClose: () => void }) {
+/** `bare`: inside a window that has its own title and close button. */
+export function ImportAnki({ onClose, bare = false }: { onClose: () => void; bare?: boolean }) {
   const input = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [useFsrs, setUseFsrs] = useState(true);
@@ -39,14 +40,16 @@ export function ImportAnki({ onClose }: { onClose: () => void }) {
   const busy = status !== null;
 
   return (
-    <div className="panel" style={{ display: 'grid', gap: 12, marginBottom: 16 }}>
-      <div className="row">
-        <h2 style={{ margin: 0 }}>Import from Anki</h2>
-        <span className="spacer" />
-        <button className="link" onClick={onClose} disabled={busy}>
-          Close
-        </button>
-      </div>
+    <div className={bare ? undefined : 'panel'} style={{ display: 'grid', gap: 12, marginBottom: bare ? 0 : 16 }}>
+      {!bare && (
+        <div className="row">
+          <h2 style={{ margin: 0 }}>Import from Anki</h2>
+          <span className="spacer" />
+          <button className="link" onClick={onClose} disabled={busy}>
+            Close
+          </button>
+        </div>
+      )}
       <p className="muted" style={{ margin: 0, fontSize: 13 }}>
         Choose an <code>.apkg</code> (File → Export → “Anki Deck Package”, with scheduling information included) or a
         <code> .colpkg</code> collection backup. Cards keep their schedule and review history.

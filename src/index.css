@@ -5344,3 +5344,110 @@ body {
 .font-option.active .font-sample {
   color: var(--accent);
 }
+
+/* ---- Import: Anki or Quizlet, then a Quizlet set's preview and where it goes */
+.import-choices {
+  display: grid;
+  gap: 10px;
+}
+.import-choice {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px;
+  text-align: left;
+  border-radius: var(--radius);
+}
+.import-choice > span:last-child {
+  display: grid;
+  gap: 2px;
+}
+.import-choice .muted {
+  font-size: 13px;
+  font-weight: 400;
+}
+.import-choice-icon {
+  font-size: 26px;
+  line-height: 1;
+}
+@media (hover: hover) and (pointer: fine) {
+  .import-choice:hover:not(:disabled) {
+    border-color: var(--accent);
+  }
+}
+.import-quizlet {
+  display: grid;
+  gap: 14px;
+}
+.import-quizlet textarea {
+  min-height: 110px;
+  font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
+  font-size: 12.5px;
+  white-space: pre;
+}
+.import-options {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+}
+.import-options .field {
+  min-width: 150px;
+}
+.import-strip {
+  gap: 8px;
+  padding-bottom: 8px;
+  font-size: 13.5px;
+}
+.import-preview h2,
+.import-where h2 {
+  margin: 0;
+  font-size: 15px;
+}
+.import-preview-list {
+  max-height: 260px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overscroll-behavior: contain;
+}
+.import-card {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+  padding: 8px 10px;
+  font-size: 13.5px;
+  line-height: 1.4;
+}
+.import-card + .import-card {
+  border-top: 1px solid var(--border);
+}
+.import-n {
+  font-size: 12px;
+  padding-top: 15px;
+}
+.import-side {
+  display: grid;
+  gap: 2px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.import-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.import-empty,
+.import-more {
+  margin: 8px 0 0;
+  font-size: 13px;
+}
+.import-more {
+  padding: 8px 10px;
+}
+.import-where {
+  display: grid;
+  gap: 10px;
+}
