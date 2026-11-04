@@ -1,9 +1,11 @@
-// Home: what today holds. Cards waiting across your decks, what you've done
-// today, your streak, the decks with cards up next, and the year's heatmap.
+// Home: what today holds. Cards waiting across your classes, what you've
+// done today, your streak, each class with the decks in it that have cards
+// up next, and the year's heatmap.
 
 import { useMemo } from 'react';
 import type { View } from '../App';
 import { useCollection } from '../lib/collection';
+import { baseName } from '../lib/deckTree';
 import { dayNumber, dayStartMs, formatDuration, today } from '../lib/time';
 import { ReviewHeatmap } from './ReviewHeatmap';
 
@@ -42,13 +44,23 @@ export function Home({ go }: { go: (v: View) => void }) {
   }, [col, col.version]);
 
   const upNext = data.decks.filter((x) => x.total > 0).sort((a, b) => b.due - a.due || b.total - a.total);
-  const first = upNext[0];
+  /** the decks in a class with cards waiting, most due first */
+  const waitingIn = (cls: { name: string }) =>
+    col
+      .deckList()
+      .filter((d) => d.name.startsWith(`${cls.name}::`))
+      .map((d) => {
+        const c = col.counts(d.id);
+        return { deck: d, due: c.reviewCount + c.learnCount, fresh: c.newCount };
+      })
+      .filter((x) => x.due + x.fresh > 0)
+      .sort((a, b) => b.due - a.due || b.fresh - a.fresh);
   const line =
     data.due + data.fresh === 0
       ? data.reviewed
         ? 'All caught up for today.'
         : 'Nothing waiting today. Add cards to a deck, or start a lesson in Learn.'
-      : `${data.due.toLocaleString()} to review and ${data.fresh.toLocaleString()} new across ${upNext.length} deck${upNext.length === 1 ? '' : 's'}.`;
+      : `${data.due.toLocaleString()} to review and ${data.fresh.toLocaleString()} new across ${upNext.length} class${upNext.length === 1 ? '' : 'es'}.`;
 
   return (
     <div className="home">
@@ -57,11 +69,6 @@ export function Home({ go }: { go: (v: View) => void }) {
           <h1>Today</h1>
           <p className="muted">{line}</p>
         </div>
-        {first && (
-          <button className="primary" onClick={() => go({ name: 'review', deckId: first.deck.id })}>
-            Study {first.deck.name}
-          </button>
-        )}
       </header>
 
       <div className="panel kpi-strip">
@@ -99,40 +106,61 @@ export function Home({ go }: { go: (v: View) => void }) {
           <div className="up-next-head">
             <h2>Up next</h2>
             <span className="muted">
-              {upNext.length} deck{upNext.length === 1 ? '' : 's'} with cards waiting
+              {upNext.length} class{upNext.length === 1 ? '' : 'es'} with cards waiting
             </span>
           </div>
-          {upNext.slice(0, 6).map(({ deck, counts, due }) => {
-            const subs = col
-              .deckList()
-              .filter((d) => d.name.startsWith(`${deck.name}::`) && !d.name.slice(deck.name.length + 2).includes('::'))
-              .filter((d) => {
-                const c = col.counts(d.id);
-                return c.newCount + c.reviewCount + c.learnCount > 0;
-              })
-              .map((d) => d.name.slice(deck.name.length + 2));
+          {upNext.slice(0, 6).map(({ deck: cls, counts, due }) => {
+            const decks = waitingIn(cls);
             return (
-              <div key={deck.id} className="up-next-row">
-                <span className={`deck-mark ${deck.icon ? 'has-icon' : ''}`} style={{ '--hue': hueOf(deck.name) } as React.CSSProperties} aria-hidden="true">
-                  {deck.icon ?? deck.name.trim()[0]?.toUpperCase()}
-                </span>
-                <span className="up-next-text">
-                  <span className="up-next-name">{deck.name}</span>
-                  <span className="up-next-meta">
-                    {due > 0 && (
-                      <span>
-                        <b className="num c-review">{due}</b> due
-                      </span>
-                    )}
-                    {counts.newCount > 0 && (
-                      <span>
-                        <b className="num c-new">{counts.newCount}</b> new
-                      </span>
-                    )}
-                    {subs.length > 0 && <span className="up-next-subs">{subs.join(', ')}</span>}
+              <div key={cls.id} className="up-next-class">
+                <button className="up-next-row up-next-class-row" onClick={() => go({ name: 'class', deckId: cls.id })} title={`Open ${cls.name}`}>
+                  <span className={`deck-mark ${cls.icon ? 'has-icon' : ''}`} style={{ '--hue': hueOf(cls.name) } as React.CSSProperties} aria-hidden="true">
+                    {cls.icon ?? cls.name.trim()[0]?.toUpperCase()}
                   </span>
-                </span>
-                <button onClick={() => go({ name: 'review', deckId: deck.id })}>Study</button>
+                  <span className="up-next-text">
+                    <span className="up-next-name">{cls.name}</span>
+                    <span className="up-next-meta">
+                      {due > 0 && (
+                        <span>
+                          <b className="num c-review">{due}</b> due
+                        </span>
+                      )}
+                      {counts.newCount > 0 && (
+                        <span>
+                          <b className="num c-new">{counts.newCount}</b> new
+                        </span>
+                      )}
+                      <span>
+                        {decks.length} deck{decks.length === 1 ? '' : 's'} waiting
+                      </span>
+                    </span>
+                  </span>
+                  <span className="up-next-open" aria-hidden="true">
+                    ›
+                  </span>
+                </button>
+                {decks.length > 0 && (
+                  <div className="up-next-decks">
+                    {decks.map((x) => (
+                      <div key={x.deck.id} className="up-next-deck">
+                        <span className="up-next-deck-name">{x.deck.name.slice(cls.name.length + 2).split('::').map((n) => n.trim()).join(' › ') || baseName(x.deck.name)}</span>
+                        <span className="up-next-meta">
+                          {x.due > 0 && (
+                            <span>
+                              <b className="num c-review">{x.due}</b> due
+                            </span>
+                          )}
+                          {x.fresh > 0 && (
+                            <span>
+                              <b className="num c-new">{x.fresh}</b> new
+                            </span>
+                          )}
+                        </span>
+                        <button onClick={() => go({ name: 'review', deckId: x.deck.id })}>Study</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             );
           })}

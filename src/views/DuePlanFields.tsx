@@ -5,6 +5,7 @@
 import { dayFromInput, DEFAULT_MIN_NEW, formatDay, inputFromDay, planNewLimit } from '../lib/dueDate';
 import { today } from '../lib/time';
 import type { DuePlan } from '../lib/types';
+import { DatePicker } from './DatePicker';
 
 /** What the fields hold while being edited. */
 export interface DueDraft {
@@ -51,16 +52,14 @@ export function DuePlanFields({ draft, onChange, newCards }: { draft: DueDraft; 
       </label>
       {draft.on && (
         <>
-          <div className="grid-2">
-            <label className="field">
-              Know it by
-              <input type="date" min={inputFromDay(t + 1)} value={draft.date} onChange={(e) => onChange({ ...draft, date: e.target.value })} />
-            </label>
-            <label className="field">
-              Minimum new cards/day
-              <input type="number" min={0} value={draft.minNew} onChange={(e) => onChange({ ...draft, minNew: e.target.value })} />
-            </label>
+          <div className="field">
+            <span>Know it by</span>
+            <DatePicker value={draft.date} min={t + 1} today={t} onChange={(date) => onChange({ ...draft, date })} />
           </div>
+          <label className="field due-min">
+            Minimum new cards/day
+            <input type="number" min={0} value={draft.minNew} onChange={(e) => onChange({ ...draft, minNew: e.target.value })} />
+          </label>
           <p className="muted due-plan-note">
             {typeof plan === 'string'
               ? plan
