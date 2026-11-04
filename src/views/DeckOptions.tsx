@@ -20,6 +20,7 @@ import {
   type ReviewMix,
   type ReviewOrder,
 } from '../lib/types';
+import { draftFromPlan, DuePlanFields, planFromDraft, type DueDraft } from './DuePlanFields';
 import { ConfirmDialog, PromptDialog, TrashIcon } from './Modal';
 import { Optimize } from './Optimize';
 
@@ -139,6 +140,7 @@ export function DeckOptions({ deckId, go, onClose }: { deckId: Id; go: (v: View)
     deck?.newLimitToday?.day === t || deck?.reviewLimitToday?.day === t ? 'today' : deck?.newLimit != null || deck?.reviewLimit != null ? 'deck' : 'preset',
   );
   const [msg, setMsg] = useState<{ text: string; error?: boolean } | null>(null);
+  const [due, setDue] = useState<DueDraft>(() => draftFromPlan(deck?.dueDate));
 
   const subdecks = useMemo(() => (deck ? col.deckList().filter((d) => d.id !== deck.id && isWithin(d.name, deck.name)) : []), [col, deck]);
 
@@ -187,6 +189,8 @@ export function DeckOptions({ deckId, go, onClose }: { deckId: Id; go: (v: View)
 
   const presetUsers = col.decksUsingPreset(presetId).length;
   const deckCardCount = col.subtreeCards(deck.id).length;
+  // what a due date shares out today: unseen new cards plus today's already studied
+  const newAtDayStart = col.subtreeCards(deck.id).filter((c) => c.queue === 0).length + (deck.today.day === t ? deck.today.newDone : 0);
   const subdeckCount = subdecks.length;
 
   /** Limits shown in the Daily Limits section for the current scope. */
@@ -229,6 +233,8 @@ export function DeckOptions({ deckId, go, onClose }: { deckId: Id; go: (v: View)
     if (deckDraft.desiredRetention != null && !(deckDraft.desiredRetention >= 0.7 && deckDraft.desiredRetention <= 0.99)) {
       return setMsg({ text: "This deck's desired retention must be between 0.70 and 0.99.", error: true });
     }
+    const plan = planFromDraft(due, deck.dueDate);
+    if (typeof plan === 'string') return setMsg({ text: plan, error: true });
     try {
       // Renaming moves subdecks along, as in Anki; refuse clashes before saving anything.
       const newName = name.split('::').map((s) => s.trim()).filter(Boolean).join('::');
@@ -243,7 +249,7 @@ export function DeckOptions({ deckId, go, onClose }: { deckId: Id; go: (v: View)
       }
       const targets = [deckDraft, ...(toSubdecks ? subdecks.map((s) => col.decks.get(s.id) ?? s) : [])];
       for (const d of targets) {
-        await col.updateDeck(d.id === deck.id ? { ...deckDraft, name: renamed.name, configId: presetId } : { ...d, configId: presetId });
+        await col.updateDeck(d.id === deck.id ? { ...deckDraft, name: renamed.name, configId: presetId, dueDate: plan } : { ...d, configId: presetId });
       }
       // Like Anki, changing parameters recomputes memory states.
       const affected = new Set(
@@ -350,10 +356,12 @@ export function DeckOptions({ deckId, go, onClose }: { deckId: Id; go: (v: View)
               : "Limits for this deck for today only. Leave empty to use the deck's usual limits."}{' '}
           Studying a deck also applies its subdecks' own limits.
         </p>
+        <DuePlanFields draft={due} onChange={setDue} newCards={newAtDayStart} />
         <div className="grid-2">
           <label className="field">
             New cards/day
-            <input type="number" min={0} value={limitValue('new')} onChange={(e) => setLimit('new', e.target.value)} />
+            {due.on && <span className="hint">Set by the due date while it's on</span>}
+            <input type="number" min={0} value={limitValue('new')} disabled={due.on} onChange={(e) => setLimit('new', e.target.value)} />
           </label>
           <label className="field">
             Maximum reviews/day

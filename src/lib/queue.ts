@@ -3,6 +3,7 @@
 // (rslib/src/decks/limits.rs).
 
 import { isWithin, sortDecks } from './deckTree';
+import { planNewLimit } from './dueDate';
 import { today as todayNum, nowSecs } from './time';
 import type { Card, Deck, Id, Preferences, Preset, ReviewMix } from './types';
 
@@ -33,12 +34,15 @@ interface Limits {
   capNewToReview: boolean;
 }
 
-/** Remaining limits for one deck (RemainingLimits::new_for_normal_deck_v3). */
-export function remainingLimits(deck: Deck, preset: Preset, prefs: Preferences, today: number): Limits {
+/** Remaining limits for one deck (RemainingLimits::new_for_normal_deck_v3).
+ * `newLeft` is the deck's unseen new cards (with its subdecks'), for a
+ * due-date plan, which takes the place of the deck's usual new cards/day. */
+export function remainingLimits(deck: Deck, preset: Preset, prefs: Preferences, today: number, newLeft = 0): Limits {
   const dayLimit = (l: Deck['reviewLimitToday']) => (l && l.day === today ? l.limit : null);
-  let review = dayLimit(deck.reviewLimitToday) ?? deck.reviewLimit ?? preset.reviewsPerDay;
-  let newLimit = dayLimit(deck.newLimitToday) ?? deck.newLimit ?? preset.newPerDay;
   const counts = deck.today.day === today ? deck.today : { newDone: 0, revDone: 0 };
+  const planned = planNewLimit(deck.dueDate, today, newLeft + counts.newDone);
+  let review = dayLimit(deck.reviewLimitToday) ?? deck.reviewLimit ?? preset.reviewsPerDay;
+  let newLimit = dayLimit(deck.newLimitToday) ?? planned ?? deck.newLimit ?? preset.newPerDay;
   review -= counts.revDone;
   newLimit -= counts.newDone;
   const ignore = prefs.newCardsIgnoreReviewLimit;
@@ -56,8 +60,18 @@ class LimitTree {
 
   constructor(decks: Deck[], ctx: QueueContext, today: number) {
     const byName = new Map(decks.map((d) => [d.name, d]));
+    // unseen new cards in each deck and its subdecks, for due-date plans
+    const newLeft = new Map<Id, number>();
+    if (decks.some((d) => d.dueDate)) {
+      const byId = new Map(decks.map((d) => [d.id, d]));
+      for (const c of ctx.cards) {
+        const home = c.queue === 0 ? byId.get(c.deckId) : undefined;
+        if (!home) continue;
+        for (const d of decks) if (isWithin(home.name, d.name)) newLeft.set(d.id, (newLeft.get(d.id) ?? 0) + 1);
+      }
+    }
     for (const d of decks) {
-      const own = remainingLimits(d, ctx.presetFor(d), ctx.prefs, today);
+      const own = remainingLimits(d, ctx.presetFor(d), ctx.prefs, today, newLeft.get(d.id) ?? 0);
       const parentDeck = d === decks[0] ? undefined : byName.get(d.name.slice(0, d.name.lastIndexOf('::')));
       this.parent.set(d.id, parentDeck?.id ?? null);
       if (parentDeck) {
@@ -129,6 +143,9 @@ function mix<T>(main: T[], extra: T[], how: ReviewMix): T[] {
 }
 
 export function buildQueue(rootId: Id, ctx: QueueContext): BuiltQueue {
+  // a due-date plan counts the cards once for the limits and again below,
+  // and ctx.cards may be a one-pass iterator
+  if (!Array.isArray(ctx.cards) && ctx.decks.some((d) => d.dueDate)) ctx = { ...ctx, cards: [...ctx.cards] };
   const t = todayNum();
   const now = nowSecs();
   const root = ctx.decks.find((d) => d.id === rootId);

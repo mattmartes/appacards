@@ -9,7 +9,8 @@ import type { Id } from '../lib/types';
 import { ClassDialog } from './ClassDialog';
 import { FileTile, kindOf } from './DeckNotes';
 import { hueOf } from './Home';
-import { PlusIcon, PromptDialog } from './Modal';
+import { PlusIcon } from './Modal';
+import { NewDeckDialog } from './NewDeckDialog';
 
 const NOTES_SHOWN = 10;
 
@@ -174,13 +175,12 @@ export function ClassHome({ deckId, go }: { deckId: Id; go: (v: View) => void })
         />
       )}
       {creating && (
-        <PromptDialog
+        <NewDeckDialog
           title={`New deck in ${baseName(deck.name)}`}
-          label="Deck name"
-          submitLabel="Create"
           validate={(n) => (col.deckByName(`${deck.name}::${n.trim()}`) ? `A deck named “${n}” already exists here.` : null)}
-          onSubmit={async (n) => {
-            await col.addDeck(`${deck.name}::${n.trim()}`);
+          onSubmit={async (n, plan) => {
+            const d = await col.addDeck(`${deck.name}::${n.trim()}`);
+            if (plan) await col.updateDeck({ ...d, dueDate: plan });
             setCreating(false);
           }}
           onCancel={() => setCreating(false)}

@@ -250,8 +250,20 @@ export interface Deck {
   collapsed?: boolean;
   /** a class's emoji, shown beside its name; missing = its first letter */
   icon?: string;
+  /** "know it by" plan: when set, it decides the deck's new cards/day
+   * (see planNewLimit in dueDate.ts); missing or null = the usual limits */
+  dueDate?: DuePlan | null;
   /** Per-day study counters (this deck and its subdecks); reset when `day` != today. */
   today: { day: number; newDone: number; revDone: number };
+}
+
+export interface DuePlan {
+  /** the day number the deck must be known by */
+  day: number;
+  /** the day the plan was set, to tell if there was room for a review-only day */
+  setOn: number;
+  /** fewest new cards a day, even when the spread works out lower */
+  minNew: number;
 }
 
 /** 0 new, 1 learning, 2 review, 3 relearning */

@@ -11,9 +11,10 @@ import { baseName } from '../lib/deckTree';
 import type { Deck, Id } from '../lib/types';
 import { AddCards } from './AddCards';
 import { ClassDialog } from './ClassDialog';
+import { NewDeckDialog } from './NewDeckDialog';
 import { DeckOptions } from './DeckOptions';
 import { ImportAnki } from './ImportAnki';
-import { ChartIcon, GearIcon, Modal, PlusIcon, PromptDialog } from './Modal';
+import { ChartIcon, GearIcon, Modal, PlusIcon } from './Modal';
 
 const icon = (d: string, size = 16) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -242,13 +243,12 @@ export function Sidebar({ view, go }: { view: View; go: (v: View) => void }) {
         />
       )}
       {newDeckIn && (
-        <PromptDialog
+        <NewDeckDialog
           title={`New deck in ${baseName(newDeckIn.name)}`}
-          label="Deck name"
-          submitLabel="Create"
           validate={(n) => (col.deckByName(`${newDeckIn.name}::${n.trim()}`) ? `A deck named “${n}” already exists here.` : null)}
-          onSubmit={async (n) => {
-            await col.addDeck(`${newDeckIn.name}::${n.trim()}`);
+          onSubmit={async (n, plan) => {
+            const d = await col.addDeck(`${newDeckIn.name}::${n.trim()}`);
+            if (plan) await col.updateDeck({ ...d, dueDate: plan });
             setNewDeckIn(null);
           }}
           onCancel={() => setNewDeckIn(null)}
