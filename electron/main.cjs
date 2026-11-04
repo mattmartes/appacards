@@ -4,7 +4,7 @@
 // Newer versions of the web code arrive as updates (electron/updater.cjs),
 // so the app doesn't need a new installer for them.
 
-const { app, BrowserWindow, dialog, ipcMain, net, protocol, shell } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, net, protocol, session, shell } = require('electron');
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
@@ -16,6 +16,10 @@ const DIST = path.join(__dirname, '..', 'dist');
 const ICON = path.join(__dirname, '..', 'build', 'icon.png');
 const DEV_URL = process.env.VITE_DEV_SERVER_URL;
 const CONFIG_FILE = () => path.join(app.getPath('userData'), 'desktop-config.json');
+/** The browser beside Grid notes keeps its own cookies and sign-ins here,
+ * apart from the app's own storage. */
+const BROWSER_PARTITION = 'persist:notes-browser';
+const isWeb = (url) => /^https?:\/\//i.test(url);
 
 // Serve the built app from app://bundle/ rather than file://, so storage,
 // fetch() and WebAssembly behave as they do on a normal website.
@@ -137,6 +141,46 @@ function registerIpc() {
   });
 }
 
+/** The browser panel beside Grid notes is an Electron <webview>. Each one is
+ * sandboxed, can't get a preload script or Node, only shows web pages, and
+ * uses its own session, so the sites in it never see the app's data. Pop-up
+ * windows (sign-in with Google, say) open as small windows in that session. */
+function setUpBrowserPanel() {
+  const ses = session.fromPartition(BROWSER_PARTITION);
+  // sites see an ordinary Chrome, not "Electron" (some refuse to sign in otherwise)
+  ses.setUserAgent(ses.getUserAgent().replace(/\s(Electron|Appa)\/\S+/g, ''));
+  // copying and full screen are fine; the camera, microphone, location and the rest are not
+  ses.setPermissionRequestHandler((_wc, permission, done) => done(['clipboard-sanitized-write', 'fullscreen'].includes(permission)));
+
+  app.on('web-contents-created', (_e, contents) => {
+    contents.on('will-attach-webview', (event, prefs, params) => {
+      delete prefs.preload;
+      prefs.nodeIntegration = false;
+      prefs.nodeIntegrationInSubFrames = false;
+      prefs.contextIsolation = true;
+      prefs.sandbox = true;
+      prefs.webSecurity = true;
+      if (params.partition !== BROWSER_PARTITION || !isWeb(params.src)) event.preventDefault();
+    });
+    // the panel itself, and any sign-in window it opened
+    if (contents.getType() !== 'webview' && contents.session !== ses) return;
+    contents.setWindowOpenHandler(({ url }) =>
+      isWeb(url)
+        ? {
+            action: 'allow',
+            overrideBrowserWindowOptions: {
+              width: 520,
+              height: 680,
+              autoHideMenuBar: true,
+              webPreferences: { partition: BROWSER_PARTITION, sandbox: true, contextIsolation: true, nodeIntegration: false },
+            },
+          }
+        : { action: 'deny' },
+    );
+    contents.on('will-navigate', (event, url) => !isWeb(url) && event.preventDefault());
+  });
+}
+
 function createWindow() {
   const win = new BrowserWindow({
     width: 1200,
@@ -156,6 +200,8 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      // the browser panel beside Grid notes (locked down in setUpBrowserPanel)
+      webviewTag: true,
     },
   });
 
@@ -205,6 +251,7 @@ if (!app.requestSingleInstanceLock()) {
     // before this version of the app touches anything: a snapshot of the data
     if (!DEV_URL) backups.atStart(dataDir, app.getPath('userData'), updater.servingVersion());
     registerIpc();
+    setUpBrowserPanel();
     createWindow();
     if (!DEV_URL)
       updater.start((status) => {

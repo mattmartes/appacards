@@ -31,6 +31,8 @@ interface DesktopBridge {
   remove(rel: string): Promise<void>;
   chooseDataDir(): Promise<string | null>;
   openDataDir(): Promise<string>;
+  /** missing in installers from before the browser beside Grid notes */
+  browserPanel?: boolean;
   /** missing in installers from before backups */
   backups?: {
     list(): Promise<BackupSnapshot[]>;

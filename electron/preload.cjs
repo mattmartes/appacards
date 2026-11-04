@@ -16,6 +16,8 @@ contextBridge.exposeInMainWorld('desktop', {
   /** Opens a folder picker; returns the new folder or null if cancelled. */
   chooseDataDir: () => ipcRenderer.invoke('fs:chooseDataDir'),
   openDataDir: () => ipcRenderer.invoke('fs:openDataDir'),
+  /** this installer can show a browser beside Grid notes (a sandboxed <webview>) */
+  browserPanel: true,
   backups: {
     /** Snapshots in the data folder's Backups, newest first. */
     list: () => ipcRenderer.invoke('backups:list'),

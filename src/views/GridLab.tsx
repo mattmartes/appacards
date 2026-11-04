@@ -39,6 +39,25 @@ import { DEFAULT_MODEL, savedKey, type ModelInfo, type ModelOptions } from '../l
 import { useModels } from './AiPrefs';
 import { FormulaEditor } from './FormulaEditor';
 import { GridPdf } from './GridPdf';
+import { canShowBrowser, NotesBrowser } from './NotesBrowser';
+
+/** How the side beside the notes is set out, remembered on this computer. */
+const SIDE_STORE = 'appa-notes-side';
+function readSide(): { browser: boolean; browserFirst: boolean; split: number } {
+  try {
+    const s = JSON.parse(localStorage.getItem(SIDE_STORE) ?? '{}') as Partial<{ browser: boolean; browserFirst: boolean; split: number }>;
+    return { browser: !!s.browser, browserFirst: s.browserFirst ?? true, split: typeof s.split === 'number' ? s.split : 0.5 };
+  } catch {
+    return { browser: false, browserFirst: true, split: 0.5 };
+  }
+}
+function saveSide(s: { browser: boolean; browserFirst: boolean; split: number }) {
+  try {
+    localStorage.setItem(SIDE_STORE, JSON.stringify(s));
+  } catch {
+    // set out as before next time
+  }
+}
 
 const STORE = 'appa-gridlab';
 const PAPER_STORE = 'appa-gridlab-paper';
@@ -396,6 +415,15 @@ export function GridEditor({
   const [activePdf, setActivePdf] = useState<string | null>(null);
   const pdf = pdfs.find((p) => p.id === activePdf) ?? pdfs[0] ?? null;
   const [pdfWidth, setPdfWidth] = useState(() => Math.round(Math.max(300, Math.min(620, window.innerWidth * 0.36))));
+  /** a browser beside the notes (desktop app), on its own or sharing the side with the PDFs */
+  const [browserOpen, setBrowserOpen] = useState(() => canShowBrowser() && readSide().browser);
+  /** with both open: which goes on top, and the top one's share of the height (from the divider) */
+  const [browserFirst, setBrowserFirst] = useState(() => readSide().browserFirst);
+  const [split, setSplit] = useState(() => readSide().split);
+  /** while a divider is dragged: the browser mustn't catch the pointer */
+  const [resizing, setResizing] = useState(false);
+  useEffect(() => saveSide({ browser: browserOpen, browserFirst, split }), [browserOpen, browserFirst, split]);
+  const side = !!pdf || browserOpen;
   const [request, setRequest] = useState('');
   /** what the AI is doing, while it works */
   const [aiStatus, setAiStatus] = useState<string | null>(null);
@@ -863,13 +891,30 @@ export function GridEditor({
     setAiStatus(null);
   };
 
+  /** Drags the line between the browser and the PDF, with both beside the notes. */
+  const resizeSplit = (e: ReactPointerEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const box = e.currentTarget.parentElement!.getBoundingClientRect();
+    const move = (ev: PointerEvent) => setSplit(Math.max(0.15, Math.min(0.85, (ev.clientY - box.top) / box.height)));
+    setResizing(true);
+    const up = () => {
+      setResizing(false);
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  };
+
   /** Drags the line between the notes and the PDF. */
   const resizePdf = (e: ReactPointerEvent) => {
     e.preventDefault();
     const x0 = e.clientX;
     const w0 = pdfWidth;
     const move = (ev: PointerEvent) => setPdfWidth(Math.max(260, Math.min(window.innerWidth * 0.6, w0 - (ev.clientX - x0))));
+    setResizing(true);
     const up = () => {
+      setResizing(false);
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
     };
@@ -1318,13 +1363,14 @@ export function GridEditor({
   const block = (e: { preventDefault: () => void }) => e.preventDefault();
 
   return (
-    <div className={`grid-lab ${pdf ? 'with-pdf' : ''}`} style={pdf ? { ['--pdf-w' as string]: `${pdfWidth}px` } : undefined}>
+    <div className={`grid-lab ${side ? 'with-pdf' : ''} ${resizing ? 'resizing' : ''}`} style={side ? { ['--pdf-w' as string]: `${pdfWidth}px` } : undefined}>
       <div className="grid-lab-notes">
       {header}
 
       <div className="grid-lab-bar">
         <button onClick={() => fileRef.current?.click()}>Add image</button>
         {!pdf && <button onClick={() => pdfInputRef.current?.click()}>Open a PDF beside</button>}
+        {!browserOpen && canShowBrowser() && <button onClick={() => setBrowserOpen(true)}>Open a browser beside</button>}
         <input
           ref={pdfInputRef}
           type="file"
@@ -1891,10 +1937,35 @@ export function GridEditor({
           onClose={() => setTexEdit(null)}
         />
       )}
-      {pdf && (
+      {side && (
         <>
-          <div className="grid-split" role="separator" aria-orientation="vertical" aria-label="Resize the PDF" onPointerDown={resizePdf} />
-          <GridPdf pdfs={pdfs} active={pdf.id} onSelect={showPdf} onAdd={() => pdfInputRef.current?.click()} onClose={closePdf} />
+          <div className="grid-split" role="separator" aria-orientation="vertical" aria-label="Resize the side" onPointerDown={resizePdf} />
+          <div className={`grid-side ${pdf && browserOpen ? 'both' : ''}`}>
+            {browserOpen && (
+              <div className="grid-side-pane browser-pane" style={{ order: browserFirst ? 0 : 2, flexGrow: !pdf ? 1 : browserFirst ? split : 1 - split }}>
+                <NotesBrowser
+                  onClose={() => setBrowserOpen(false)}
+                  extra={
+                    pdf && (
+                      <button className="icon-button" onClick={() => setBrowserFirst(!browserFirst)} aria-label="Swap the browser and the PDF" title="Swap the browser and the PDF">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                          <path d="M7 4v16M3 8l4-4 4 4M17 20V4M13 16l4 4 4-4" />
+                        </svg>
+                      </button>
+                    )
+                  }
+                />
+              </div>
+            )}
+            {pdf && browserOpen && (
+              <div className="grid-side-divider" role="separator" aria-orientation="horizontal" aria-label="Resize the browser and the PDF" style={{ order: 1 }} onPointerDown={resizeSplit} />
+            )}
+            {pdf && (
+              <div className="grid-side-pane pdf-pane" style={{ order: browserFirst ? 2 : 0, flexGrow: !browserOpen ? 1 : browserFirst ? 1 - split : split }}>
+                <GridPdf pdfs={pdfs} active={pdf.id} onSelect={showPdf} onAdd={() => pdfInputRef.current?.click()} onClose={closePdf} />
+              </div>
+            )}
+          </div>
         </>
       )}
     </div>

@@ -5443,3 +5443,112 @@ body {
     overscroll-behavior: contain;
   }
 }
+
+/* ---- beside Grid notes: the PDFs and/or a browser, one above the other */
+.grid-side {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 56px);
+  min-width: 0;
+}
+.grid-side-pane {
+  flex: 1 1 0;
+  min-height: 120px;
+  display: flex;
+  flex-direction: column;
+}
+/* inside the side, the PDF viewer fills its pane rather than the window */
+.grid-side .grid-pdf {
+  position: static;
+  height: auto;
+  flex: 1;
+  min-height: 0;
+}
+.grid-side-divider {
+  flex: none;
+  height: 12px;
+  cursor: row-resize;
+  touch-action: none;
+  position: relative;
+}
+.grid-side-divider::after {
+  content: '';
+  position: absolute;
+  left: 30%;
+  right: 30%;
+  top: 5px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--border-strong);
+  transition: background 120ms ease;
+}
+.grid-side-divider:hover::after,
+.grid-lab.resizing .grid-side-divider::after {
+  background: var(--accent);
+}
+/* a dragged divider keeps the pointer even as it passes over the page */
+.grid-lab.resizing .notes-browser-view,
+.grid-lab.resizing .grid-pdf-pages {
+  pointer-events: none;
+}
+.grid-lab.resizing {
+  user-select: none;
+}
+
+.notes-browser {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  overflow: hidden;
+}
+.notes-browser-bar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+}
+.notes-browser-bar .icon-button {
+  width: 28px;
+  height: 28px;
+  flex: none;
+}
+.notes-browser-address {
+  flex: 1;
+  min-width: 60px;
+  margin: 0 4px;
+}
+.notes-browser-address input {
+  width: 100%;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  background: var(--surface-2);
+}
+.notes-browser-view {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  background: #fff;
+}
+@media (max-width: 900px) {
+  .grid-side {
+    position: static;
+    height: auto;
+    gap: 14px;
+  }
+  .grid-side-pane {
+    flex: none !important;
+    height: 70vh;
+  }
+  .grid-side-divider {
+    display: none;
+  }
+}
