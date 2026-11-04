@@ -4712,3 +4712,79 @@ a.button-like {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/* ---- a class's emoji icon */
+.class-icon {
+  flex: none;
+  width: 18px;
+  text-align: center;
+  font-size: 15px;
+  line-height: 1;
+}
+/* an emoji brings its own colour: a bigger glyph on the tinted square */
+.deck-mark.has-icon {
+  font-size: 20px;
+}
+.deck-mark-lg.has-icon {
+  font-size: 26px;
+}
+.class-mark-button {
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+@media (hover: hover) and (pointer: fine) {
+  .class-mark-button:hover:not(:disabled) {
+    box-shadow: 0 0 0 2px var(--ring);
+    background: hsl(var(--hue) 60% 92%);
+  }
+  :root[data-scheme='dark'] .class-mark-button:hover:not(:disabled) {
+    background: hsl(var(--hue) 30% 20%);
+  }
+}
+@media (hover: hover) and (pointer: fine) and (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .class-mark-button:hover:not(:disabled) {
+    background: hsl(var(--hue) 30% 20%);
+  }
+}
+.class-dialog {
+  display: grid;
+  gap: 14px;
+}
+.emoji-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(38px, 1fr));
+  gap: 4px;
+  margin-top: 4px;
+}
+.emoji-option {
+  height: 38px;
+  padding: 0;
+  font-size: 20px;
+  line-height: 1;
+  border-color: transparent;
+  background: none;
+}
+@media (hover: hover) and (pointer: fine) {
+  .emoji-option:hover:not(:disabled) {
+    background: var(--surface-hover);
+  }
+}
+.emoji-option.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.emoji-none {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+.emoji-own {
+  display: grid;
+  gap: 4px;
+  margin-top: 6px;
+}
+.emoji-own input {
+  width: 90px;
+  font-size: 18px;
+}

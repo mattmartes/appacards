@@ -248,6 +248,8 @@ export interface Deck {
   /** deck-specific desired retention */
   desiredRetention?: number | null;
   collapsed?: boolean;
+  /** a class's emoji, shown beside its name; missing = its first letter */
+  icon?: string;
   /** Per-day study counters (this deck and its subdecks); reset when `day` != today. */
   today: { day: number; newDone: number; revDone: number };
 }

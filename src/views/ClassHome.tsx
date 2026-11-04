@@ -6,6 +6,7 @@ import type { View } from '../App';
 import { useCollection } from '../lib/collection';
 import { baseName, isWithin } from '../lib/deckTree';
 import type { Id } from '../lib/types';
+import { ClassDialog } from './ClassDialog';
 import { FileTile, kindOf } from './DeckNotes';
 import { hueOf } from './Home';
 import { PlusIcon, PromptDialog } from './Modal';
@@ -16,6 +17,7 @@ export function ClassHome({ deckId, go }: { deckId: Id; go: (v: View) => void })
   const col = useCollection();
   const deck = col.decks.get(deckId);
   const [creating, setCreating] = useState(false);
+  const [pickingIcon, setPickingIcon] = useState(false);
   const [uploading, setUploading] = useState(false);
   const input = useRef<HTMLInputElement>(null);
 
@@ -59,9 +61,15 @@ export function ClassHome({ deckId, go }: { deckId: Id; go: (v: View) => void })
     <div className="class-home">
       <header className="page-head home-head">
         <div className="class-title">
-          <span className="deck-mark deck-mark-lg" style={{ '--hue': hueOf(deck.name) } as React.CSSProperties} aria-hidden="true">
-            {baseName(deck.name).trim()[0]?.toUpperCase()}
-          </span>
+          <button
+            className={`deck-mark deck-mark-lg class-mark-button ${deck.icon ? 'has-icon' : ''}`}
+            style={{ '--hue': hueOf(deck.name) } as React.CSSProperties}
+            onClick={() => setPickingIcon(true)}
+            aria-label="Change the class's icon"
+            title="Change icon"
+          >
+            {deck.icon ?? baseName(deck.name).trim()[0]?.toUpperCase()}
+          </button>
           <div>
             {path.length > 1 && <p className="muted">{path.slice(0, -1).join(' › ')}</p>}
             <h1>{baseName(deck.name)}</h1>
@@ -153,6 +161,18 @@ export function ClassHome({ deckId, go }: { deckId: Id; go: (v: View) => void })
         )}
       </section>
 
+      {pickingIcon && (
+        <ClassDialog
+          title={`Icon for ${baseName(deck.name)}`}
+          submitLabel="Save"
+          initialIcon={deck.icon}
+          onSubmit={async (_, icon) => {
+            await col.updateDeck({ ...deck, icon });
+            setPickingIcon(false);
+          }}
+          onCancel={() => setPickingIcon(false)}
+        />
+      )}
       {creating && (
         <PromptDialog
           title={`New deck in ${baseName(deck.name)}`}

@@ -10,6 +10,7 @@ import { useCollection } from '../lib/collection';
 import { baseName } from '../lib/deckTree';
 import type { Deck, Id } from '../lib/types';
 import { AddCards } from './AddCards';
+import { ClassDialog } from './ClassDialog';
 import { DeckOptions } from './DeckOptions';
 import { ImportAnki } from './ImportAnki';
 import { ChartIcon, GearIcon, Modal, PlusIcon, PromptDialog } from './Modal';
@@ -117,6 +118,11 @@ export function Sidebar({ view, go }: { view: View; go: (v: View) => void }) {
             }}
             title={`Open ${d.name}`}
           >
+            {d.icon && (
+              <span className="class-icon" aria-hidden="true">
+                {d.icon}
+              </span>
+            )}
             <span className="deck-label">{baseName(d.name)}</span>
             {countsOf(d)}
           </button>
@@ -217,14 +223,17 @@ export function Sidebar({ view, go }: { view: View; go: (v: View) => void }) {
 
       {importing && <ImportAnki onClose={() => setImporting(false)} />}
       {creating && (
-        <PromptDialog
+        <ClassDialog
           title="New class"
-          label="Class name"
-          hint="e.g. Biology 241. Add decks to it from its Decks row."
+          askName
           submitLabel="Create class"
           validate={(n) => (col.deckByName(n.split('::').map((s) => s.trim()).join('::')) ? `A class named “${n}” already exists.` : null)}
-          onSubmit={async (n) => {
-            const d = await col.addDeck(n);
+          onSubmit={async (n, emoji) => {
+            let d = await col.addDeck(n);
+            if (emoji) {
+              d = { ...d, icon: emoji };
+              await col.updateDeck(d);
+            }
             setCreating(false);
             openClass(d);
             go({ name: 'class', deckId: d.id });

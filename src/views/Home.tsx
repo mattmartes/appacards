@@ -113,8 +113,8 @@ export function Home({ go }: { go: (v: View) => void }) {
               .map((d) => d.name.slice(deck.name.length + 2));
             return (
               <div key={deck.id} className="up-next-row">
-                <span className="deck-mark" style={{ '--hue': hueOf(deck.name) } as React.CSSProperties} aria-hidden="true">
-                  {deck.name.trim()[0]?.toUpperCase()}
+                <span className={`deck-mark ${deck.icon ? 'has-icon' : ''}`} style={{ '--hue': hueOf(deck.name) } as React.CSSProperties} aria-hidden="true">
+                  {deck.icon ?? deck.name.trim()[0]?.toUpperCase()}
                 </span>
                 <span className="up-next-text">
                   <span className="up-next-name">{deck.name}</span>
