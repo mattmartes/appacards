@@ -1,9 +1,13 @@
 // A date picker for "know it by": a button showing the date and how far
-// off it is, which opens a month calendar with quick picks. Values are
-// <input type="date"> strings (YYYY-MM-DD), like the field it replaces.
+// off it is, which opens a month calendar with quick picks in a popup over
+// the page, like the browser's own. Values are <input type="date"> strings
+// (YYYY-MM-DD), like the field it replaces.
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { dayFromInput, inputFromDay } from '../lib/dueDate';
+
+const POP_WIDTH = 300;
 
 const WEEKDAYS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 const QUICK: [string, number][] = [
@@ -16,7 +20,12 @@ const QUICK: [string, number][] = [
 /** UTC date parts of a day number (day numbers count local calendar days). */
 const partsOf = (day: number) => {
   const d = new Date(day * 86_400_000);
-  return { y: d.getUTCFullYear(), m: d.getUTCMonth(), date: d.getUTCDate(), weekday: d.getUTCDay() };
+  return {
+    y: d.getUTCFullYear(),
+    m: d.getUTCMonth(),
+    date: d.getUTCDate(),
+    weekday: d.getUTCDay(),
+  };
 };
 const dayOf = (y: number, m: number, date: number) => Math.floor(Date.UTC(y, m, date) / 86_400_000);
 
@@ -38,14 +47,44 @@ export function DatePicker({ value, min, today, onChange }: { value: string; min
     return { y: p.y, m: p.m };
   });
   const wrap = useRef<HTMLDivElement>(null);
+  const pop = useRef<HTMLDivElement>(null);
   const grid = useRef<HTMLDivElement>(null);
+  /** where the popup sits: under the button, or above it when there's no room below */
+  const [place, setPlace] = useState<{ left: number; top: number } | null>(null);
 
   useEffect(() => {
     if (!open) return;
-    const away = (e: MouseEvent) => !wrap.current?.contains(e.target as Node) && setOpen(false);
+    const away = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (!wrap.current?.contains(t) && !pop.current?.contains(t)) setOpen(false);
+    };
     document.addEventListener('mousedown', away);
     return () => document.removeEventListener('mousedown', away);
   }, [open]);
+
+  // keep the popup by its button as the dialog scrolls or the window resizes
+  useLayoutEffect(() => {
+    if (!open) return setPlace(null);
+    const measure = () => {
+      const b = wrap.current?.getBoundingClientRect();
+      const h = pop.current?.offsetHeight ?? 360;
+      if (!b) return;
+      const left = Math.min(Math.max(8, b.left), window.innerWidth - POP_WIDTH - 8);
+      const below = b.bottom + 6;
+      const fitsBelow = below + h <= window.innerHeight - 8;
+      const fitsAbove = b.top - 6 - h >= 8;
+      // below if it fits, else above, else as low as it can go and still be whole on screen
+      const top = fitsBelow ? below : fitsAbove ? b.top - 6 - h : Math.max(8, window.innerHeight - 8 - h);
+      setPlace({ left, top });
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    window.addEventListener('scroll', measure, true);
+    return () => {
+      window.removeEventListener('resize', measure);
+      window.removeEventListener('scroll', measure, true);
+    };
+  }, [open, month]);
 
   // keep the keyboard's day in view and focused
   useEffect(() => {
@@ -82,7 +121,13 @@ export function DatePicker({ value, min, today, onChange }: { value: string; min
   const canGoBack = dayOf(month.y, month.m, 1) > min;
 
   const label = chosen
-    ? new Date(chosen * 86_400_000).toLocaleDateString(undefined, { timeZone: 'UTC', weekday: 'short', month: 'long', day: 'numeric', year: 'numeric' })
+    ? new Date(chosen * 86_400_000).toLocaleDateString(undefined, {
+        timeZone: 'UTC',
+        weekday: 'short',
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+      })
     : 'Choose a date';
 
   return (
@@ -107,69 +152,88 @@ export function DatePicker({ value, min, today, onChange }: { value: string; min
         </span>
       </button>
 
-      {open && (
-        <div
-          className="date-pop"
-          role="dialog"
-          aria-label="Choose the date"
-          onKeyDown={(e) => {
-            const move: Record<string, number> = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 };
-            if (e.key in move) {
-              e.preventDefault();
-              show(Math.max(min, cursor + move[e.key]));
-            } else if (e.key === 'PageUp' || e.key === 'PageDown') {
-              e.preventDefault();
-              shiftMonth(e.key === 'PageUp' ? -1 : 1);
-            } else if (e.key === 'Escape') {
-              e.stopPropagation();
-              setOpen(false);
-            }
-          }}
-        >
-          <div className="date-quick">
-            {QUICK.map(([name, days]) => (
-              <button type="button" key={name} className={chosen === today + days ? 'active' : ''} onClick={() => pick(today + days)}>
-                {name}
-              </button>
-            ))}
-          </div>
-          <div className="date-head">
-            <button type="button" className="icon-button" onClick={() => shiftMonth(-1)} disabled={!canGoBack} aria-label="Previous month">
-              ‹
-            </button>
-            <span>{title}</span>
-            <button type="button" className="icon-button" onClick={() => shiftMonth(1)} aria-label="Next month">
-              ›
-            </button>
-          </div>
-          <div className="date-grid" ref={grid} role="grid">
-            {WEEKDAYS.map((w) => (
-              <span key={w} className="date-weekday" aria-hidden="true">
-                {w}
-              </span>
-            ))}
-            {cells.map((day, i) =>
-              day === null ? (
-                <span key={`x${i}`} />
-              ) : (
-                <button
-                  type="button"
-                  key={day}
-                  data-day={day}
-                  tabIndex={day === cursor ? 0 : -1}
-                  disabled={day < min}
-                  className={`date-day ${day === chosen ? 'chosen' : ''} ${day === today ? 'today' : ''} ${chosen !== null && day > today && day < chosen ? 'between' : ''}`}
-                  aria-pressed={day === chosen}
-                  aria-label={new Date(day * 86_400_000).toLocaleDateString(undefined, { timeZone: 'UTC', weekday: 'long', month: 'long', day: 'numeric' })}
-                  onClick={() => pick(day)}
-                >
-                  {partsOf(day).date}
+      {open &&
+        createPortal(
+          <div
+            ref={pop}
+            className="date-pop"
+            role="dialog"
+            aria-label="Choose the date"
+            style={{
+              left: place?.left ?? 0,
+              top: place?.top ?? 0,
+              width: POP_WIDTH,
+              visibility: place ? 'visible' : 'hidden',
+            }}
+            onKeyDown={(e) => {
+              const move: Record<string, number> = {
+                ArrowLeft: -1,
+                ArrowRight: 1,
+                ArrowUp: -7,
+                ArrowDown: 7,
+              };
+              if (e.key in move) {
+                e.preventDefault();
+                show(Math.max(min, cursor + move[e.key]));
+              } else if (e.key === 'PageUp' || e.key === 'PageDown') {
+                e.preventDefault();
+                shiftMonth(e.key === 'PageUp' ? -1 : 1);
+              } else if (e.key === 'Escape') {
+                e.stopPropagation();
+                setOpen(false);
+              }
+            }}
+          >
+            <div className="date-quick">
+              {QUICK.map(([name, days]) => (
+                <button type="button" key={name} className={chosen === today + days ? 'active' : ''} onClick={() => pick(today + days)}>
+                  {name}
                 </button>
-              ),
-            )}
-          </div>
-        </div>
-      )}
+              ))}
+            </div>
+            <div className="date-head">
+              <button type="button" className="icon-button" onClick={() => shiftMonth(-1)} disabled={!canGoBack} aria-label="Previous month">
+                ‹
+              </button>
+              <span>{title}</span>
+              <button type="button" className="icon-button" onClick={() => shiftMonth(1)} aria-label="Next month">
+                ›
+              </button>
+            </div>
+            <div className="date-grid" ref={grid} role="grid">
+              {WEEKDAYS.map((w) => (
+                <span key={w} className="date-weekday" aria-hidden="true">
+                  {w}
+                </span>
+              ))}
+              {cells.map((day, i) =>
+                day === null ? (
+                  <span key={`x${i}`} />
+                ) : (
+                  <button
+                    type="button"
+                    key={day}
+                    data-day={day}
+                    tabIndex={day === cursor ? 0 : -1}
+                    disabled={day < min}
+                    className={`date-day ${day === chosen ? 'chosen' : ''} ${day === today ? 'today' : ''} ${chosen !== null && day > today && day < chosen ? 'between' : ''}`}
+                    aria-pressed={day === chosen}
+                    aria-label={new Date(day * 86_400_000).toLocaleDateString(undefined, {
+                      timeZone: 'UTC',
+                      weekday: 'long',
+                      month: 'long',
+                      day: 'numeric',
+                    })}
+                    onClick={() => pick(day)}
+                  >
+                    {partsOf(day).date}
+                  </button>
+                ),
+              )}
+            </div>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

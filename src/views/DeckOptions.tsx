@@ -18,6 +18,7 @@ import {
   type ReviewMix,
   type ReviewOrder,
 } from '../lib/types';
+import { EmojiButton } from './ClassDialog';
 import { draftFromPlan, DuePlanFields, planFromDraft, type DueDraft } from './DuePlanFields';
 import { ConfirmDialog, TrashIcon } from './Modal';
 import { Optimize } from './Optimize';
@@ -137,6 +138,8 @@ export function DeckOptions({ deckId, go, onClose }: { deckId: Id; go: (v: View)
   const [pText, setPText] = useState(() => draft?.params.join(', ') ?? '');
   const [due, setDue] = useState<DueDraft>(() => draftFromPlan(deck?.dueDate));
   const [advanced, setAdvanced] = useState(false);
+  /** a class's emoji (classes are the top-level decks) */
+  const [icon, setIcon] = useState<string | undefined>(deck?.icon);
   const [msg, setMsg] = useState<{ text: string; error?: boolean } | null>(null);
 
   const subdecks = useMemo(() => (deck ? col.deckList().filter((d) => d.id !== deck.id && isWithin(d.name, deck.name)) : []), [col, deck]);
@@ -161,6 +164,7 @@ export function DeckOptions({ deckId, go, onClose }: { deckId: Id; go: (v: View)
     else go({ name: 'decks' });
   };
 
+  const isClass = !deck.name.includes('::');
   const subtree = col.subtreeCards(deck.id);
   const deckCardCount = subtree.length;
   // what a due date shares out today: unseen new cards plus today's already studied
@@ -202,6 +206,7 @@ export function DeckOptions({ deckId, go, onClose }: { deckId: Id; go: (v: View)
         ...current,
         configId: own.id,
         dueDate: plan,
+        ...(isClass ? { icon } : {}),
         newLimit: null,
         reviewLimit: null,
         newLimitToday: null,
@@ -236,7 +241,8 @@ export function DeckOptions({ deckId, go, onClose }: { deckId: Id; go: (v: View)
             <h1 style={{ margin: 0 }}>Options for {deck.name}</h1>
           </div>
         )}
-        <div className="deck-options-bar">
+        <div className={`deck-options-bar ${isClass ? 'with-icon' : ''}`}>
+          {isClass && <EmojiButton value={icon} onChange={setIcon} />}
           <input type="text" value={name} onChange={(e) => setName(e.target.value)} aria-label="Deck name" placeholder="Deck name" />
           <button className="icon-button danger" onClick={() => setDeleting(true)} aria-label={`Delete deck ${deck.name}`} title="Delete deck">
             <TrashIcon />

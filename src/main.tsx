@@ -2,9 +2,10 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
-import { applyTheme, readTheme } from './lib/theme'
+import { applyFont, applyTheme, readFont, readTheme } from './lib/theme'
 
 applyTheme(readTheme())
+applyFont(readFont())
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

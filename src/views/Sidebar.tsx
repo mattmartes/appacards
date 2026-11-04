@@ -50,6 +50,9 @@ export function Sidebar({ view, go }: { view: View; go: (v: View) => void }) {
   const [newDeckIn, setNewDeckIn] = useState<Deck | null>(null);
   /** the deck the add-cards window is open for */
   const [addingTo, setAddingTo] = useState<Deck | null>(null);
+  /** a class being dragged, and where it would land: before or after another */
+  const [dragging, setDragging] = useState<Id | null>(null);
+  const [dropAt, setDropAt] = useState<{ id: Id; after: boolean } | null>(null);
 
   const save = (next: Set<Id>) => {
     setOpen(next);
@@ -85,6 +88,29 @@ export function Sidebar({ view, go }: { view: View; go: (v: View) => void }) {
   const settingsDeck = settingsFor !== null ? col.decks.get(settingsFor) : undefined;
 
   const indent = (n: number) => ({ paddingLeft: 4 + n * 14 });
+
+  /** Saves a new order of the classes; each gets its place in the list. */
+  const arrange = async (order: Deck[]) => {
+    for (const [i, d] of order.entries()) if (d.position !== i) await col.updateDeck({ ...d, position: i });
+  };
+  /** Moves class `id` to before or after class `target`. */
+  const moveClass = (id: Id, target: Id, after: boolean) => {
+    if (id === target) return;
+    const classes = childrenOf(null);
+    const moving = classes.find((c) => c.id === id);
+    if (!moving) return;
+    const rest = classes.filter((c) => c.id !== id);
+    const at = rest.findIndex((c) => c.id === target) + (after ? 1 : 0);
+    void arrange([...rest.slice(0, at), moving, ...rest.slice(at)]);
+  };
+  /** Alt+↑ / Alt+↓ moves a class up or down one place. */
+  const nudgeClass = (id: Id, by: -1 | 1) => {
+    const classes = childrenOf(null);
+    const i = classes.findIndex((c) => c.id === id);
+    const j = i + by;
+    if (i < 0 || j < 0 || j >= classes.length) return;
+    moveClass(id, classes[j].id, by > 0);
+  };
   const countsOf = (d: Deck) => {
     const c = col.counts(d.id);
     const due = c.reviewCount + c.learnCount;
@@ -111,8 +137,48 @@ export function Sidebar({ view, go }: { view: View; go: (v: View) => void }) {
       go({ name: 'class', deckId: c.id });
     };
     return (
-      <div key={d.id} role="treeitem" aria-expanded={isOpen}>
-        <div className={`deck-item ${classOf === d.id || (!isOpen && studying === d.id) ? 'active' : ''}`} style={indent(0)}>
+      <div
+        key={d.id}
+        role="treeitem"
+        aria-expanded={isOpen}
+        className={`class-tree-item ${dragging === d.id ? 'dragging' : ''} ${dropAt?.id === d.id ? (dropAt.after ? 'drop-after' : 'drop-before') : ''}`}
+        onDragOver={(e) => {
+          if (dragging === null) return;
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'move';
+          const r = e.currentTarget.getBoundingClientRect();
+          const after = e.clientY > r.top + Math.min(r.height, 34) / 2;
+          if (dropAt?.id !== d.id || dropAt.after !== after) setDropAt({ id: d.id, after });
+        }}
+        onDrop={(e) => {
+          e.preventDefault();
+          if (dragging !== null && dropAt) moveClass(dragging, dropAt.id, dropAt.after);
+          setDragging(null);
+          setDropAt(null);
+        }}
+      >
+        <div
+          className={`deck-item ${classOf === d.id || (!isOpen && studying === d.id) ? 'active' : ''}`}
+          style={indent(0)}
+          // drag a class by its row to put the classes in your own order
+          draggable
+          onDragStart={(e) => {
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', d.name);
+            setDragging(d.id);
+          }}
+          onDragEnd={() => {
+            setDragging(null);
+            setDropAt(null);
+          }}
+          onKeyDown={(e) => {
+            if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+              e.preventDefault();
+              nudgeClass(d.id, e.key === 'ArrowUp' ? -1 : 1);
+            }
+          }}
+          title="Drag to rearrange (or Alt+↑/↓)"
+        >
           <button className="deck-twisty" aria-label={isOpen ? `Close ${d.name}` : `Open ${d.name}`} onClick={() => (isOpen ? toggle(d.id) : openClass(d))}>
             {isOpen ? '▾' : '▸'}
           </button>
@@ -223,9 +289,6 @@ export function Sidebar({ view, go }: { view: View; go: (v: View) => void }) {
       {importing && <ImportAnki onClose={() => setImporting(false)} />}
       {creating && (
         <ClassDialog
-          title="New class"
-          askName
-          submitLabel="Create class"
           validate={(n) => (col.deckByName(n.split('::').map((s) => s.trim()).join('::')) ? `A class named “${n}” already exists.` : null)}
           onSubmit={async (n, emoji) => {
             let d = await col.addDeck(n);

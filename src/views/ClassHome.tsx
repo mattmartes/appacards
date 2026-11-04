@@ -6,7 +6,7 @@ import type { View } from '../App';
 import { useCollection } from '../lib/collection';
 import { baseName, isWithin } from '../lib/deckTree';
 import type { Id } from '../lib/types';
-import { ClassDialog } from './ClassDialog';
+import { EmojiPicker } from './ClassDialog';
 import { FileTile, kindOf } from './DeckNotes';
 import { hueOf } from './Home';
 import { PlusIcon } from './Modal';
@@ -162,18 +162,7 @@ export function ClassHome({ deckId, go }: { deckId: Id; go: (v: View) => void })
         )}
       </section>
 
-      {pickingIcon && (
-        <ClassDialog
-          title={`Icon for ${baseName(deck.name)}`}
-          submitLabel="Save"
-          initialIcon={deck.icon}
-          onSubmit={async (_, icon) => {
-            await col.updateDeck({ ...deck, icon });
-            setPickingIcon(false);
-          }}
-          onCancel={() => setPickingIcon(false)}
-        />
-      )}
+      {pickingIcon && <EmojiPicker value={deck.icon} onPick={(icon) => void col.updateDeck({ ...deck, icon })} onClose={() => setPickingIcon(false)} />}
       {creating && (
         <NewDeckDialog
           title={`New deck in ${baseName(deck.name)}`}

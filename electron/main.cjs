@@ -141,6 +141,9 @@ function createWindow() {
   const win = new BrowserWindow({
     width: 1200,
     height: 860,
+    // shown once maximized, so it opens filling the screen rather than a
+    // fixed size in the middle of a large one
+    show: false,
     minWidth: 420,
     minHeight: 500,
     title: 'Appa',
@@ -154,6 +157,11 @@ function createWindow() {
       nodeIntegration: false,
       sandbox: true,
     },
+  });
+
+  win.once('ready-to-show', () => {
+    win.maximize();
+    win.show();
   });
 
   // Links to other sites open in the normal browser, not inside the app.

@@ -14,11 +14,19 @@ export function isWithin(name: string, ancestor: string) {
   return name === ancestor || name.startsWith(ancestor + SEP);
 }
 
-/** Depth-first order, siblings sorted case-insensitively like Anki. */
+/** Depth-first order, siblings sorted case-insensitively like Anki, except
+ * that classes (top-level decks) go in the order they were arranged in, if
+ * they have been; ones never moved come after, by name. */
 export function sortDecks(decks: Deck[]): Deck[] {
+  const position = new Map(decks.filter((d) => !d.name.includes(SEP)).map((d) => [d.name, d.position ?? Infinity]));
   return [...decks].sort((a, b) => {
     const ca = components(a.name);
     const cb = components(b.name);
+    if (ca[0] !== cb[0]) {
+      const pa = position.get(ca[0]) ?? Infinity;
+      const pb = position.get(cb[0]) ?? Infinity;
+      if (pa !== pb) return pa - pb;
+    }
     for (let i = 0; i < Math.min(ca.length, cb.length); i++) {
       const c = ca[i].localeCompare(cb[i], undefined, { sensitivity: 'base' });
       if (c) return c;

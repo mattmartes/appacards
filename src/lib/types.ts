@@ -250,6 +250,8 @@ export interface Deck {
   collapsed?: boolean;
   /** a class's emoji, shown beside its name; missing = its first letter */
   icon?: string;
+  /** a class's place in the sidebar, as arranged by dragging; missing = by name, after those placed */
+  position?: number;
   /** "know it by" plan: when set, it decides the deck's new cards/day
    * (see planNewLimit in dueDate.ts); missing or null = the usual limits */
   dueDate?: DuePlan | null;

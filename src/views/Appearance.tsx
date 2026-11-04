@@ -1,13 +1,16 @@
 import { useRef, useState } from 'react';
 import { useCollection } from '../lib/collection';
-import { readTheme, setTheme, THEMES, type Theme } from '../lib/theme';
+import { FONTS, readCustomColour, readFont, readTheme, setFont, setTheme, THEMES, type Theme } from '../lib/theme';
 
-/** The colour theme, and a background image for the app with an opacity slider. */
+/** The colour theme, the app's font, and a background image for the app with an opacity slider. */
 export function Appearance() {
   const col = useCollection();
   const input = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [theme, setThemeState] = useState<Theme>(readTheme);
+  const [custom, setCustom] = useState(readCustomColour);
+  const colourInput = useRef<HTMLInputElement>(null);
+  const [font, setFontState] = useState(readFont);
   const pct = Math.round(col.prefs.backgroundOpacity * 100);
 
   const choose = async (file: File) => {
@@ -29,12 +32,58 @@ export function Appearance() {
             onClick={() => {
               setTheme(t.key);
               setThemeState(t.key);
+              // Custom opens the colour picker straight away
+              if (t.key === 'custom') colourInput.current?.click();
             }}
           >
-            <span className={`theme-swatch swatch-${t.key}`} aria-hidden="true" />
+            <span className="theme-swatch" style={{ background: t.key === 'custom' ? custom : t.swatch }} aria-hidden="true" />
             {t.name}
           </button>
         ))}
+        <input
+          ref={colourInput}
+          type="color"
+          className="theme-colour-input"
+          value={custom}
+          aria-label="Custom theme colour"
+          tabIndex={-1}
+          onChange={(e) => {
+            setCustom(e.target.value);
+            setTheme('custom', e.target.value);
+            setThemeState('custom');
+          }}
+        />
+      </div>
+      {theme === 'custom' && (
+        <div className="theme-custom-row">
+          <button className="theme-custom-swatch" style={{ background: custom }} onClick={() => colourInput.current?.click()} aria-label="Change the custom colour" />
+          <span className="muted">
+            Custom colour <span className="num">{custom.toUpperCase()}</span>: the background, panels and text take its shade, and buttons and highlights use it.
+          </span>
+        </div>
+      )}
+      <div className="field">
+        <span>Font</span>
+        <div className="font-picker" role="radiogroup" aria-label="Font">
+          {FONTS.map((f) => (
+            <button
+              key={f.key}
+              role="radio"
+              aria-checked={font === f.key}
+              className={`font-option ${font === f.key ? 'active' : ''}`}
+              style={{ fontFamily: f.stack }}
+              onClick={() => {
+                setFont(f.key);
+                setFontState(f.key);
+              }}
+            >
+              <span className="font-sample" aria-hidden="true">
+                Aa
+              </span>
+              {f.name}
+            </button>
+          ))}
+        </div>
       </div>
       <div className="row" style={{ alignItems: 'flex-start', gap: 16 }}>
         <div
