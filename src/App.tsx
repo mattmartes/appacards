@@ -156,6 +156,8 @@ export default function App() {
   const go = (v: View) => {
     setView(v);
     mainRef.current?.scrollTo({ top: 0 });
+    // in a narrow window the whole column (the shell) is what scrolls
+    mainRef.current?.parentElement?.scrollTo({ top: 0 });
   };
 
   if (error)

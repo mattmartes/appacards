@@ -5451,3 +5451,13 @@ body {
   display: grid;
   gap: 10px;
 }
+/* In a narrow window the sidebar stacks above the page and the two scroll
+   as one column. With the window itself locked, that column has to be the
+   one that scrolls, or nothing can (as in a window snapped to half a screen). */
+@media (max-width: 760px) {
+  .app-shell {
+    height: 100%;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+}
