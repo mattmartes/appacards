@@ -10,6 +10,7 @@ import { EmojiPicker } from './ClassDialog';
 import { FileTile, kindOf } from './DeckNotes';
 import { hueOf } from './Home';
 import { PlusIcon } from './Modal';
+import { ImportDialog } from './ImportDialog';
 import { NewDeckDialog } from './NewDeckDialog';
 
 const NOTES_SHOWN = 10;
@@ -18,6 +19,8 @@ export function ClassHome({ deckId, go }: { deckId: Id; go: (v: View) => void })
   const col = useCollection();
   const deck = col.decks.get(deckId);
   const [creating, setCreating] = useState(false);
+  /** importing into this class from its New deck window, with the name typed there */
+  const [importing, setImporting] = useState<{ deckName: string } | null>(null);
   const [pickingIcon, setPickingIcon] = useState(false);
   const [uploading, setUploading] = useState(false);
   const input = useRef<HTMLInputElement>(null);
@@ -172,9 +175,14 @@ export function ClassHome({ deckId, go }: { deckId: Id; go: (v: View) => void })
             if (plan) await col.updateDeck({ ...d, dueDate: plan });
             setCreating(false);
           }}
+          onImport={(name) => {
+            setImporting({ deckName: name });
+            setCreating(false);
+          }}
           onCancel={() => setCreating(false)}
         />
       )}
+      {importing && <ImportDialog classId={deck.id} deckName={importing.deckName} onDone={() => setImporting(null)} onClose={() => setImporting(null)} />}
     </div>
   );
 }

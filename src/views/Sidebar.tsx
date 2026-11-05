@@ -13,7 +13,6 @@ import { AddCards } from './AddCards';
 import { ClassDialog } from './ClassDialog';
 import { NewDeckDialog } from './NewDeckDialog';
 import { DeckOptions } from './DeckOptions';
-import { ImportAnki } from './ImportAnki';
 import { ImportDialog } from './ImportDialog';
 import { ChartIcon, GearIcon, Modal, PlusIcon } from './Modal';
 
@@ -46,8 +45,8 @@ export function Sidebar({ view, go }: { view: View; go: (v: View) => void }) {
   const decks = col.deckList();
   const [open, setOpen] = useState<Set<Id>>(readOpen);
   const [creating, setCreating] = useState(false);
-  const [importing, setImporting] = useState(false);
-  const [importingAnki, setImportingAnki] = useState(false);
+  /** the import window, and the class (and deck name) it starts in when opened from a New deck window */
+  const [importing, setImporting] = useState<{ classId?: Id; deckName?: string } | null>(null);
   const [settingsFor, setSettingsFor] = useState<Id | null>(null);
   const [newDeckIn, setNewDeckIn] = useState<Deck | null>(null);
   /** the deck the add-cards window is open for */
@@ -265,7 +264,7 @@ export function Sidebar({ view, go }: { view: View; go: (v: View) => void }) {
 
       <div className="sidebar-group">
         <span>Classes</span>
-        <button className="icon-button" onClick={() => setImporting(true)} aria-label="Import cards" title="Import from Anki or Quizlet">
+        <button className="icon-button" onClick={() => setImporting({})} aria-label="Import cards" title="Import from Anki or Quizlet">
           {icon('M12 3v12M7 10l5 5 5-5M5 21h14')}
         </button>
         <button className="icon-button" onClick={() => setCreating(true)} aria-label="New class" title="New class">
@@ -290,25 +289,18 @@ export function Sidebar({ view, go }: { view: View; go: (v: View) => void }) {
 
       {importing && (
         <ImportDialog
-          onAnki={() => {
-            setImporting(false);
-            setImportingAnki(true);
-          }}
+          classId={importing.classId}
+          deckName={importing.deckName}
           onDone={(classId) => {
-            setImporting(false);
+            setImporting(null);
             const c = col.decks.get(classId);
             if (c) {
               openClass(c);
               go({ name: 'class', deckId: c.id });
             }
           }}
-          onClose={() => setImporting(false)}
+          onClose={() => setImporting(null)}
         />
-      )}
-      {importingAnki && (
-        <Modal title="Import from Anki" onClose={() => setImportingAnki(false)} wide>
-          <ImportAnki bare onClose={() => setImportingAnki(false)} />
-        </Modal>
       )}
       {creating && (
         <ClassDialog
@@ -333,6 +325,10 @@ export function Sidebar({ view, go }: { view: View; go: (v: View) => void }) {
           onSubmit={async (n, plan) => {
             const d = await col.addDeck(`${newDeckIn.name}::${n.trim()}`);
             if (plan) await col.updateDeck({ ...d, dueDate: plan });
+            setNewDeckIn(null);
+          }}
+          onImport={(name) => {
+            setImporting({ classId: newDeckIn.id, deckName: name });
             setNewDeckIn(null);
           }}
           onCancel={() => setNewDeckIn(null)}

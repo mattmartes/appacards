@@ -7,20 +7,26 @@ import { useCollection } from '../lib/collection';
 import { baseName } from '../lib/deckTree';
 import { DEFAULT_QUIZLET, parseQuizlet, toHtml, type QuizletOptions } from '../lib/quizlet';
 import type { Id } from '../lib/types';
+import { ImportAnki } from './ImportAnki';
 import { Modal } from './Modal';
 
 const PREVIEW_ROWS = 100;
 const NEW = -1;
 
-export function ImportDialog({ onAnki, onDone, onClose }: { onAnki: () => void; onDone: (classId: Id) => void; onClose: () => void }) {
+/** `classId` / `deckName`: where the cards go to start with, e.g. when
+ * importing from a class's New deck window; an Anki file's decks then go
+ * under that class instead of becoming classes of their own. */
+export function ImportDialog({ classId: startClass, deckName: startDeck, onDone, onClose }: { classId?: Id; deckName?: string; onDone: (classId: Id) => void; onClose: () => void }) {
   const col = useCollection();
-  const [step, setStep] = useState<'choose' | 'quizlet'>('choose');
+  const [step, setStep] = useState<'choose' | 'quizlet' | 'anki'>('choose');
   const [text, setText] = useState('');
   const [opts, setOpts] = useState<QuizletOptions>(DEFAULT_QUIZLET);
-  const [classId, setClassId] = useState<Id>(() => col.deckList().find((d) => !d.name.includes('::'))?.id ?? NEW);
+  const [classId, setClassId] = useState<Id>(() => startClass ?? col.deckList().find((d) => !d.name.includes('::'))?.id ?? NEW);
   const [className, setClassName] = useState('');
   const [deckId, setDeckId] = useState<Id>(NEW);
-  const [deckName, setDeckName] = useState('');
+  const [deckName, setDeckName] = useState(startDeck ?? '');
+  /** the class an Anki file goes under, when the import began from one */
+  const anchoredClass = startClass !== undefined ? col.decks.get(startClass) : undefined;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -52,17 +58,27 @@ export function ImportDialog({ onAnki, onDone, onClose }: { onAnki: () => void; 
     }
   };
 
+  if (step === 'anki') {
+    return (
+      <Modal title={anchoredClass ? `Import from Anki into ${baseName(anchoredClass.name)}` : 'Import from Anki'} onClose={onClose} wide>
+        <ImportAnki bare parent={anchoredClass?.name} onClose={onClose} />
+      </Modal>
+    );
+  }
+
   if (step === 'choose') {
     return (
-      <Modal title="Import cards" onClose={onClose}>
+      <Modal title={anchoredClass ? `Import cards into ${baseName(anchoredClass.name)}` : 'Import cards'} onClose={onClose}>
         <div className="import-choices">
-          <button className="import-choice" onClick={onAnki}>
+          <button className="import-choice" onClick={() => setStep('anki')}>
             <span className="import-choice-icon" aria-hidden="true">
               📦
             </span>
             <span>
               <b>Anki deck</b>
-              <span className="muted">An .apkg or .colpkg file, with its review history</span>
+              <span className="muted">
+                An .apkg or .colpkg file, with its review history{anchoredClass ? `; its decks go in ${baseName(anchoredClass.name)}` : ''}
+              </span>
             </span>
           </button>
           <button className="import-choice" onClick={() => setStep('quizlet')}>

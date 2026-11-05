@@ -1,8 +1,9 @@
 import { useRef, useState } from 'react';
 import { importAnki, previewAnkiFile, type ImportPreview, type ImportSummary } from '../lib/importAnki';
 
-/** `bare`: inside a window that has its own title and close button. */
-export function ImportAnki({ onClose, bare = false }: { onClose: () => void; bare?: boolean }) {
+/** `bare`: inside a window that has its own title and close button.
+ * `parent`: a class the file's decks go under. */
+export function ImportAnki({ onClose, bare = false, parent }: { onClose: () => void; bare?: boolean; parent?: string }) {
   const input = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [useFsrs, setUseFsrs] = useState(true);
@@ -28,7 +29,7 @@ export function ImportAnki({ onClose, bare = false }: { onClose: () => void; bar
     if (!preview) return;
     setError(null);
     try {
-      setSummary(await importAnki(preview, { importPresets: useFsrs }, setStatus));
+      setSummary(await importAnki(preview, { importPresets: useFsrs, parent }, setStatus));
       setPreview(null);
     } catch (e) {
       setError(`Import failed: ${(e as Error).message}`);
@@ -82,7 +83,8 @@ export function ImportAnki({ onClose, bare = false }: { onClose: () => void; bar
             )}
           </div>
           <div className="muted" style={{ fontSize: 13 }}>
-            Decks: {preview.deckNames.slice(0, 8).join(', ')}
+            {parent ? `Decks (going in ${parent.split('::').pop()}): ` : 'Decks: '}
+            {preview.deckNames.slice(0, 8).join(', ')}
             {preview.deckNames.length > 8 && ` and ${preview.deckNames.length - 8} more`}
           </div>
           {preview.presets.length > 0 && (

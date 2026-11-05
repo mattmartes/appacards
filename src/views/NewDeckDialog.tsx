@@ -1,5 +1,6 @@
 // Making a deck in a class: its name, and optionally a due date that sets
-// how many new cards it brings in each day.
+// how many new cards it brings in each day; or importing one into the class
+// from Anki or Quizlet instead.
 
 import { useState } from 'react';
 import type { DuePlan } from '../lib/types';
@@ -10,11 +11,14 @@ export function NewDeckDialog({
   title,
   validate,
   onSubmit,
+  onImport,
   onCancel,
 }: {
   title: string;
   validate?: (name: string) => string | null;
   onSubmit: (name: string, plan: DuePlan | null) => void | Promise<void>;
+  /** import into the class instead, with the name typed so far */
+  onImport?: (name: string) => void;
   onCancel: () => void;
 }) {
   const [name, setName] = useState('');
@@ -40,6 +44,11 @@ export function NewDeckDialog({
       onClose={onCancel}
       footer={
         <>
+          {onImport && (
+            <button style={{ marginRight: 'auto' }} onClick={() => onImport(name.trim())} title="Bring cards in from an Anki file or a Quizlet set, into this class">
+              Import cards…
+            </button>
+          )}
           <button onClick={onCancel}>Cancel</button>
           <button className="primary" onClick={() => void submit()}>
             Create

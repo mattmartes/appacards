@@ -77,7 +77,8 @@ function mapQueue(queue: number): Queue {
 
 export async function importAnki(
   preview: ImportPreview,
-  opts: { importPresets: boolean },
+  /** `parent`: a class to put the file's decks under, rather than making them classes of their own */
+  opts: { importPresets: boolean; parent?: string },
   onStatus: (text: string) => void,
 ): Promise<ImportSummary> {
   const { pkg } = preview;
@@ -110,13 +111,14 @@ export async function importAnki(
   const newDecks: Deck[] = [];
   const existingByName = new Map(col.deckList().map((d) => [d.name, d]));
   const pkgDeckByName = new Map([...pkg.decks.values()].map((d) => [d.name, d]));
+  const under = opts.parent ? `${opts.parent}::` : '';
   const deckFor = (ankiId: number): Deck => {
-    const name = pkg.decks.get(ankiId)?.name ?? 'Default';
+    const name = under + (pkg.decks.get(ankiId)?.name ?? 'Default');
     let deck: Deck | undefined;
     for (const n of ancestorNames(name)) {
       deck = existingByName.get(n);
       if (!deck) {
-        const src = pkgDeckByName.get(n);
+        const src = pkgDeckByName.get(n.startsWith(under) ? n.slice(under.length) : n);
         deck = {
           id: nextId++,
           name: n,
