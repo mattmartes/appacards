@@ -97,6 +97,13 @@ export function Appearance() {
             aria-checked={theme === t.key}
             className={`theme-option ${theme === t.key ? 'active' : ''}`}
             onClick={() => {
+              // a preset comes with its own accent and panels: your own ones are cleared
+              if (t.key !== 'custom') {
+                setAccent(null);
+                setAccentState(null);
+                setPanelColour(null);
+                setPanelState(null);
+              }
               setTheme(t.key);
               setThemeState(t.key);
               // Custom opens the colour picker straight away

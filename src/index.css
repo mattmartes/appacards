@@ -5667,20 +5667,43 @@ h1 {
 
 /* ---- Panel opacity (Preferences → Appearance): panels and cards let the
    ground, or a background image, show through */
-:root[style*='--panel-alpha'] :is(.panel, .class-deck-tile, .notes-browser, .grid-pdf) {
+:root[style*='--panel-alpha'] :is(.panel, .class-deck-tile:not(.class-deck-new), .notes-browser, .grid-pdf) {
   background: color-mix(in srgb, var(--surface) var(--panel-alpha, 100%), transparent);
 }
 
-/* ---- a panel colour of your own: text inside it is dark or light, whichever
-   reads on it (set as --panel-ink by applyOwnColours in theme.ts) */
+/* ---- a panel colour of your own: what has the panel colour behind it (panels,
+   cards, dialogs, the calendar, fields, solid buttons, the selected sidebar
+   item) gets text that reads on it, dark or light (--panel-ink, set by
+   applyOwnColours in theme.ts). Buttons that are only text on the page or the
+   sidebar (links, rows, twisties, tiles without a fill) keep the theme's text,
+   and take the panel's when they sit inside a panel. */
 :root[data-panel-ink]
-  :is(.panel, .modal, .date-pop, .class-deck-tile, .file-tile, .import-choice, .notes-browser, .grid-pdf, .sidebar-nav button.active, .sidebar-foot button.active, .deck-item.active, .deck-sub.active, button, input, select, textarea) {
+  :is(
+    .panel,
+    .modal,
+    .date-pop,
+    .class-deck-tile:not(.class-deck-new),
+    .import-choice,
+    .notes-browser,
+    .grid-pdf,
+    .table-wrap,
+    .sidebar-nav button.active,
+    .sidebar-foot button.active,
+    .deck-item.active,
+    .deck-sub.active,
+    input,
+    select,
+    textarea,
+    button:not(.link, .file-tile, .class-deck-new, .deck-open, .deck-twisty, .deck-sub, .group-toggle, .icon-button, .deck-mark, .sidebar-nav button, .sidebar-foot button, .emoji-option, .colour-dot, .advanced-toggle, .group-add)
+  ) {
   --ink: var(--panel-ink);
   --ink-2: var(--panel-ink-2);
   --ink-3: var(--panel-ink-3);
   --text: var(--panel-ink);
   --text-2: var(--panel-ink-2);
   --text-3: var(--panel-ink-3);
+  --surface-2: var(--panel-surface-2);
+  --surface-hover: var(--panel-surface-hover);
   color: var(--text);
 }
 /* the accent button keeps its own text colour */
@@ -5689,7 +5712,8 @@ h1 {
 }
 
 /* ---- Preferences: its buttons are white with dark text, Save included */
-.settings-sections button:not(.colour-dot, .link, .icon-button, .theme-custom-swatch, .emoji-option, .danger) {
+/* (:root twice so this wins over the panel-colour text rule above) */
+:root:root .settings-sections button:not(.colour-dot, .link, .icon-button, .theme-custom-swatch, .emoji-option, .danger) {
   --ink: #191917;
   --ink-2: #55534d;
   --ink-3: #6f6c64;
@@ -5701,11 +5725,11 @@ h1 {
   border-color: rgb(25 25 23 / 0.14);
 }
 @media (hover: hover) and (pointer: fine) {
-  .settings-sections button:not(.colour-dot, .link, .icon-button, .theme-custom-swatch, .emoji-option, .danger):hover:not(:disabled) {
+  :root:root .settings-sections button:not(.colour-dot, .link, .icon-button, .theme-custom-swatch, .emoji-option, .danger):hover:not(:disabled) {
     background: #f0efea;
   }
 }
-.settings-sections button.primary:not(.colour-dot) {
+:root .settings-sections button.primary:not(.colour-dot) {
   background: #fdfdfb;
   color: #191917;
   font-weight: calc(600 + var(--weight-shift, 0));
@@ -5717,4 +5741,9 @@ h1 {
 }
 .colour-field .colour-choice {
   margin-top: 4px;
+}
+
+/* the sidebar is see-through by the same amount as the panels */
+:root[style*='--panel-alpha'] .sidebar {
+  background: color-mix(in srgb, color-mix(in srgb, var(--surface-2) 55%, var(--bg)) var(--panel-alpha, 100%), transparent);
 }

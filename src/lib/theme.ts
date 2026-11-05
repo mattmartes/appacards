@@ -321,11 +321,12 @@ function applyOwnColours() {
     root.style.setProperty('--panel-ink', ink[0]);
     root.style.setProperty('--panel-ink-2', ink[1]);
     root.style.setProperty('--panel-ink-3', ink[2]);
-    root.style.setProperty('--surface-2', `color-mix(in srgb, ${panel} 94%, ${ink[0]})`);
-    root.style.setProperty('--surface-hover', `color-mix(in srgb, ${panel} 90%, ${ink[0]})`);
+    // shaded rows and hovers inside panels; the sidebar and page keep the theme's
+    root.style.setProperty('--panel-surface-2', `color-mix(in srgb, ${panel} 94%, ${ink[0]})`);
+    root.style.setProperty('--panel-surface-hover', `color-mix(in srgb, ${panel} 90%, ${ink[0]})`);
     root.dataset.panelInk = light ? 'dark' : 'light';
   } else {
-    for (const k of ['--panel-ink', '--panel-ink-2', '--panel-ink-3']) root.style.removeProperty(k);
+    for (const k of ['--panel-ink', '--panel-ink-2', '--panel-ink-3', '--panel-surface-2', '--panel-surface-hover']) root.style.removeProperty(k);
     delete root.dataset.panelInk;
   }
   // panels see-through to what's behind them (the background image, say)
