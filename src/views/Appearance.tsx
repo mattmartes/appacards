@@ -3,7 +3,9 @@ import { useCollection } from '../lib/collection';
 import {
   ACCENTS,
   FONTS,
+  PANEL_COLOURS,
   readAccent,
+  readPanelColour,
   readCustomColour,
   readFont,
   readTextColour,
@@ -11,6 +13,7 @@ import {
   readTheme,
   setAccent,
   setFont,
+  setPanelColour,
   setTextColour,
   setTextWeight,
   setTheme,
@@ -73,6 +76,7 @@ export function Appearance() {
   const [font, setFontState] = useState(readFont);
   const [accent, setAccentState] = useState(readAccent);
   const [ink, setInkState] = useState(readTextColour);
+  const [panel, setPanelState] = useState(readPanelColour);
   const [weight, setWeightState] = useState(readTextWeight);
   const pct = Math.round(col.prefs.backgroundOpacity * 100);
 
@@ -133,6 +137,16 @@ export function Appearance() {
         onChange={(hex) => {
           setAccent(hex);
           setAccentState(hex);
+        }}
+      />
+      <ColourChoice
+        label="Panel colour"
+        hint="Panels, cards, dialogs, the calendar and the selected item in the sidebar"
+        value={panel}
+        presets={PANEL_COLOURS}
+        onChange={(hex) => {
+          setPanelColour(hex);
+          setPanelState(hex);
         }}
       />
       <ColourChoice

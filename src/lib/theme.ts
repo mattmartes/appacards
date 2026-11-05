@@ -236,6 +236,7 @@ export function setFont(key: string) {
 const ACCENT_STORE = 'appa-accent';
 const TEXT_COLOUR_STORE = 'appa-text-colour';
 const TEXT_WEIGHT_STORE = 'appa-text-weight';
+const PANEL_STORE = 'appa-panel-colour';
 
 /** Accent colours a tap away; any other comes from the colour picker. */
 export const ACCENTS: { name: string; value: string }[] = [
@@ -257,6 +258,17 @@ export const TEXT_COLOURS: { name: string; value: string }[] = [
   { name: 'White', value: '#ffffff' },
   { name: 'Cream', value: '#f6eedc' },
   { name: 'Ice', value: '#e3ecfb' },
+];
+/** Panel colours a tap away: light ones for light themes, dark ones for dark themes. */
+export const PANEL_COLOURS: { name: string; value: string }[] = [
+  { name: 'Paper white', value: '#fdfdfb' },
+  { name: 'Cream', value: '#fbf3df' },
+  { name: 'Blush', value: '#fbe6ee' },
+  { name: 'Lavender', value: '#ebe9fb' },
+  { name: 'Mint', value: '#e3f4ea' },
+  { name: 'Sky', value: '#e3eefb' },
+  { name: 'Charcoal', value: '#232320' },
+  { name: 'Midnight', value: '#17203a' },
 ];
 export const TEXT_WEIGHTS: { value: number; name: string }[] = [
   { value: 300, name: 'Light' },
@@ -287,6 +299,8 @@ const save = (key: string, value: string | null) => {
 export const readAccent = () => readHex(ACCENT_STORE);
 /** The text colour you picked, or null for the theme's own. */
 export const readTextColour = () => readHex(TEXT_COLOUR_STORE);
+/** The panel colour you picked, or null for the theme's own. */
+export const readPanelColour = () => readHex(PANEL_STORE);
 export function readTextWeight(): number {
   try {
     const w = Number(localStorage.getItem(TEXT_WEIGHT_STORE));
@@ -308,6 +322,14 @@ function applyOwnColours() {
     // white text on it where that reads (4.5:1), else a near-black of its hue
     root.style.setProperty('--accent-ink', onWhite(luminance(accent)) < 4.5 ? `hsl(${hsl(accent)[0]} 40% 9%)` : '#ffffff');
   }
+  const panel = readPanelColour();
+  if (panel) {
+    // panels, cards, dialogs, the calendar and the sidebar's selected item;
+    // their hover and shaded rows are it nudged toward the text
+    root.style.setProperty('--surface', panel);
+    root.style.setProperty('--surface-2', `color-mix(in srgb, ${panel} 94%, var(--ink))`);
+    root.style.setProperty('--surface-hover', `color-mix(in srgb, ${panel} 90%, var(--ink))`);
+  }
   const ink = readTextColour();
   if (ink) {
     // softer text and hints are the colour mixed toward the page
@@ -319,6 +341,11 @@ function applyOwnColours() {
 
 export function setAccent(hex: string | null) {
   save(ACCENT_STORE, hex);
+  applyTheme(readTheme());
+  window.dispatchEvent(new Event(THEME_EVENT));
+}
+export function setPanelColour(hex: string | null) {
+  save(PANEL_STORE, hex);
   applyTheme(readTheme());
   window.dispatchEvent(new Event(THEME_EVENT));
 }
