@@ -620,6 +620,9 @@ export function GridEditor({
     to.current.push(items);
     setItems(state);
     setAnchor(null);
+    setPad(null);
+    // the text undone to can be shorter (after a paste, say): keep the caret inside it
+    setCaret((k) => Math.min(k, sheetOf(state).text.length));
     lastEdit.current = { kind: '', at: 0 };
     if (!state.some((it) => it.id === active)) setActive(null);
   };
@@ -930,11 +933,13 @@ export function GridEditor({
 
   /** Formatting the next typed letters get: the toolbar's, else the letter
    * before, in the font of the nearest letters. */
-  const typingStyle = (at = caret): Style | null => {
+  const typingStyle = (from = caret): Style | null => {
     if (pending) return pending;
     if (!editing) return null;
     const text = editing.text;
     const styles = editing.styles;
+    // never past the end, even if the caret hasn't caught up with a shorter text yet
+    const at = Math.min(from, text.length);
     // at a line's start: plain, but keeping the line's alignment
     const before: Style | null =
       at === 0 || text[at - 1] === '\n'

@@ -5552,10 +5552,11 @@ body {
   }
 }
 
-/* ---- Grid notes: the toolbars fold away under "Hide tools" */
+/* ---- Grid notes: the toolbars fold away under "Hide tools". The wrapper
+   takes no part in layout (its bars sit straight in the notes column), so
+   the formatting bar can stay pinned to the top all the way down the notes. */
 .grid-tools {
-  display: grid;
-  gap: 14px;
+  display: contents;
 }
 .grid-tools[hidden] {
   display: none;
