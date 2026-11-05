@@ -218,11 +218,13 @@ function wordLayout(key: string, letters: { ch: string; b: boolean; i: boolean }
       }
       fit = { transform: `scaleX(${k.toFixed(4)})` };
     } else {
-      const spread = Math.min(1.2, (room - natural) / n);
-      // anchored at its first cell: in by about what a letter of its size
-      // would leave there, however long the word; spare room goes after it
+      // letters spread a little (up to 3px) to take up most of the spare
+      // room, and the word sits in the middle of the rest, so the gap between
+      // words stays about the same however wide or narrow their letters are
+      // (11-18px in Segoe UI at the notes' size, where it was 11-36px)
+      const spread = Math.min(3, (room - natural) / n);
       const rest = room - natural - spread * n;
-      const pad = Math.max(0, Math.min(rest, (CELL_W - natural / n - spread) / 2));
+      const pad = rest / 2;
       let x = pad;
       for (const wd of widths) {
         at.push(x);
@@ -1836,15 +1838,19 @@ export function GridEditor({
                 c.font,
                 word.map((x) => ({ ch: x.ch, b: !!x.st?.b, i: !!x.st?.i })),
               );
-              // the marks behind the word, under each letter as it's drawn
+              // the marks behind the word, under each letter as it's drawn; the
+              // first and last reach the edges of the word's cells, so a
+              // highlight or underline runs on into the spaces either side unbroken
               word.forEach((x, n) => {
                 const marks = x.cls.split(' ').filter((t) => MARKS_BEHIND.has(t));
                 if (!marks.length) return;
+                const from = n === 0 ? 0 : lay.at[n];
+                const to = n === word.length - 1 ? word.length * CELL_W : lay.at[n] + lay.w[n];
                 out.push(
                   <span
                     key={`m${x.col}`}
                     className={['grid-glyph', ...x.cls.split(' ').filter((t) => t === 'settled'), ...marks].join(' ')}
-                    style={{ left: c.col * CELL_W + lay.at[n], width: lay.w[n], ['--hl' as string]: x.st?.hl, ...x.reveal }}
+                    style={{ left: c.col * CELL_W + from, width: to - from, ['--hl' as string]: x.st?.hl, ...x.reveal }}
                   />,
                 );
               });
