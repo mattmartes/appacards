@@ -6,18 +6,17 @@ import {
   PANEL_COLOURS,
   readAccent,
   readPanelColour,
+  readPanelOpacity,
   readCustomColour,
   readFont,
-  readTextColour,
   readTextWeight,
   readTheme,
   setAccent,
   setFont,
   setPanelColour,
-  setTextColour,
+  setPanelOpacity,
   setTextWeight,
   setTheme,
-  TEXT_COLOURS,
   TEXT_WEIGHTS,
   THEMES,
   type Theme,
@@ -28,7 +27,7 @@ function ColourChoice({ label, hint, value, presets, onChange }: { label: string
   const picker = useRef<HTMLInputElement>(null);
   const isPreset = !!value && presets.some((p) => p.value.toLowerCase() === value.toLowerCase());
   return (
-    <div className="field">
+    <div className="field colour-field">
       <span>{label}</span>
       <span className="hint">{hint}</span>
       <div className="colour-choice" role="radiogroup" aria-label={label}>
@@ -64,8 +63,8 @@ function ColourChoice({ label, hint, value, presets, onChange }: { label: string
   );
 }
 
-/** The colour theme, accent and text colours, the app's font and its thickness,
- * and a background image for the app with an opacity slider. */
+/** The colour theme, accent and panel colours, panel opacity, the app's font
+ * and its thickness, and a background image for the app with an opacity slider. */
 export function Appearance() {
   const col = useCollection();
   const input = useRef<HTMLInputElement>(null);
@@ -75,8 +74,9 @@ export function Appearance() {
   const colourInput = useRef<HTMLInputElement>(null);
   const [font, setFontState] = useState(readFont);
   const [accent, setAccentState] = useState(readAccent);
-  const [ink, setInkState] = useState(readTextColour);
   const [panel, setPanelState] = useState(readPanelColour);
+  const [panelOpacity, setPanelOpacityState] = useState(readPanelOpacity);
+  const opacityPct = Math.round(panelOpacity * 100);
   const [weight, setWeightState] = useState(readTextWeight);
   const pct = Math.round(col.prefs.backgroundOpacity * 100);
 
@@ -149,16 +149,25 @@ export function Appearance() {
           setPanelState(hex);
         }}
       />
-      <ColourChoice
-        label="Text colour"
-        hint="Dark colours for light themes, light ones for dark themes; softer text and hints follow it"
-        value={ink}
-        presets={TEXT_COLOURS}
-        onChange={(hex) => {
-          setTextColour(hex);
-          setInkState(hex);
-        }}
-      />
+      <label className="field">
+        <span className="row" style={{ justifyContent: 'space-between' }}>
+          Panel opacity <span className="num">{opacityPct}%</span>
+        </span>
+        <span className="hint">Lower lets the background (or a background image) show through panels and cards</span>
+        <input
+          type="range"
+          min={20}
+          max={100}
+          step={5}
+          value={opacityPct}
+          aria-valuetext={`${opacityPct}%`}
+          onChange={(e) => {
+            const v = Number(e.target.value) / 100;
+            setPanelOpacity(v);
+            setPanelOpacityState(v);
+          }}
+        />
+      </label>
       <div className="field">
         <span>Font</span>
         <div className="font-picker" role="radiogroup" aria-label="Font">

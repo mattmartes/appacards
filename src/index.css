@@ -5664,3 +5664,57 @@ h2 {
 h1 {
   font-weight: calc(650 + var(--weight-shift, 0));
 }
+
+/* ---- Panel opacity (Preferences → Appearance): panels and cards let the
+   ground, or a background image, show through */
+:root[style*='--panel-alpha'] :is(.panel, .class-deck-tile, .notes-browser, .grid-pdf) {
+  background: color-mix(in srgb, var(--surface) var(--panel-alpha, 100%), transparent);
+}
+
+/* ---- a panel colour of your own: text inside it is dark or light, whichever
+   reads on it (set as --panel-ink by applyOwnColours in theme.ts) */
+:root[data-panel-ink]
+  :is(.panel, .modal, .date-pop, .class-deck-tile, .file-tile, .import-choice, .notes-browser, .grid-pdf, .sidebar-nav button.active, .sidebar-foot button.active, .deck-item.active, .deck-sub.active, button, input, select, textarea) {
+  --ink: var(--panel-ink);
+  --ink-2: var(--panel-ink-2);
+  --ink-3: var(--panel-ink-3);
+  --text: var(--panel-ink);
+  --text-2: var(--panel-ink-2);
+  --text-3: var(--panel-ink-3);
+  color: var(--text);
+}
+/* the accent button keeps its own text colour */
+:root[data-panel-ink] button.primary {
+  color: var(--accent-ink);
+}
+
+/* ---- Preferences: its buttons are white with dark text, Save included */
+.settings-sections button:not(.colour-dot, .link, .icon-button, .theme-custom-swatch, .emoji-option, .danger) {
+  --ink: #191917;
+  --ink-2: #55534d;
+  --ink-3: #6f6c64;
+  --text: #191917;
+  --text-2: #55534d;
+  --text-3: #6f6c64;
+  background: #fdfdfb;
+  color: #191917;
+  border-color: rgb(25 25 23 / 0.14);
+}
+@media (hover: hover) and (pointer: fine) {
+  .settings-sections button:not(.colour-dot, .link, .icon-button, .theme-custom-swatch, .emoji-option, .danger):hover:not(:disabled) {
+    background: #f0efea;
+  }
+}
+.settings-sections button.primary:not(.colour-dot) {
+  background: #fdfdfb;
+  color: #191917;
+  font-weight: calc(600 + var(--weight-shift, 0));
+}
+/* a colour setting: its name, then its hint under it, then the swatches */
+.colour-field {
+  display: grid;
+  gap: 4px;
+}
+.colour-field .colour-choice {
+  margin-top: 4px;
+}

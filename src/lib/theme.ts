@@ -167,7 +167,7 @@ export function applyTheme(t: Theme, picked = readCustomColour()) {
   else delete root.dataset.tint;
   for (const k of CUSTOM_KEYS) root.style.removeProperty(k);
   if (t === 'custom') for (const [k, v] of Object.entries(customTokens(custom))) root.style.setProperty(k, v);
-  // your own accent and text colour go over whichever theme's (the line
+  // your own accent and panel colour go over whichever theme's (the line
   // clearing a custom theme's tokens above clears these too)
   applyOwnColours();
 }
@@ -228,13 +228,13 @@ export function setFont(key: string) {
   applyFont(key);
 }
 
-// ---- your own accent and text over any theme: the accent is buttons,
-// toggles, focus, selections and the calendar's chosen days; the text is its
-// colour and thickness. Each is a choice for this computer; none means the
-// theme's own.
+// ---- your own accent, panels and text thickness over any theme: the accent
+// is buttons, toggles, focus, selections and the calendar's chosen days; the
+// panels' colour and opacity cover cards, dialogs and the calendar too. Each
+// is a choice for this computer; none means the theme's own.
 
 const ACCENT_STORE = 'appa-accent';
-const TEXT_COLOUR_STORE = 'appa-text-colour';
+const PANEL_OPACITY_STORE = 'appa-panel-opacity';
 const TEXT_WEIGHT_STORE = 'appa-text-weight';
 const PANEL_STORE = 'appa-panel-colour';
 
@@ -248,16 +248,6 @@ export const ACCENTS: { name: string; value: string }[] = [
   { name: 'Pink', value: '#e0458f' },
   { name: 'Purple', value: '#8a5cf0' },
   { name: 'Periwinkle', value: '#7c7cf0' },
-];
-/** Text colours a tap away, picked to read on light grounds (dark ones) and dark grounds (light ones). */
-export const TEXT_COLOURS: { name: string; value: string }[] = [
-  { name: 'Charcoal', value: '#191917' },
-  { name: 'Navy', value: '#1c2b4a' },
-  { name: 'Plum', value: '#3b1f3a' },
-  { name: 'Forest', value: '#1f3a2a' },
-  { name: 'White', value: '#ffffff' },
-  { name: 'Cream', value: '#f6eedc' },
-  { name: 'Ice', value: '#e3ecfb' },
 ];
 /** Panel colours a tap away: light ones for light themes, dark ones for dark themes. */
 export const PANEL_COLOURS: { name: string; value: string }[] = [
@@ -297,8 +287,6 @@ const save = (key: string, value: string | null) => {
 
 /** The accent you picked, or null for the theme's own. */
 export const readAccent = () => readHex(ACCENT_STORE);
-/** The text colour you picked, or null for the theme's own. */
-export const readTextColour = () => readHex(TEXT_COLOUR_STORE);
 /** The panel colour you picked, or null for the theme's own. */
 export const readPanelColour = () => readHex(PANEL_STORE);
 export function readTextWeight(): number {
@@ -311,7 +299,7 @@ export function readTextWeight(): number {
   return 400;
 }
 
-/** Puts your accent and text colour over the theme applyTheme just set out
+/** Puts your accent and panel colour over the theme applyTheme just set out
  * (it clears both first, so "the theme's own" needs nothing here). */
 function applyOwnColours() {
   const root = document.documentElement;
@@ -325,18 +313,25 @@ function applyOwnColours() {
   const panel = readPanelColour();
   if (panel) {
     // panels, cards, dialogs, the calendar and the sidebar's selected item;
-    // their hover and shaded rows are it nudged toward the text
+    // their text is dark or light, whichever reads on the colour, and their
+    // hover and shaded rows are it nudged toward that text
+    const light = luminance(panel) > 0.42;
+    const ink = light ? ['#191917', '#55534d', '#6f6c64'] : ['#f1f0ec', '#c7c6be', '#a3a29a'];
     root.style.setProperty('--surface', panel);
-    root.style.setProperty('--surface-2', `color-mix(in srgb, ${panel} 94%, var(--ink))`);
-    root.style.setProperty('--surface-hover', `color-mix(in srgb, ${panel} 90%, var(--ink))`);
+    root.style.setProperty('--panel-ink', ink[0]);
+    root.style.setProperty('--panel-ink-2', ink[1]);
+    root.style.setProperty('--panel-ink-3', ink[2]);
+    root.style.setProperty('--surface-2', `color-mix(in srgb, ${panel} 94%, ${ink[0]})`);
+    root.style.setProperty('--surface-hover', `color-mix(in srgb, ${panel} 90%, ${ink[0]})`);
+    root.dataset.panelInk = light ? 'dark' : 'light';
+  } else {
+    for (const k of ['--panel-ink', '--panel-ink-2', '--panel-ink-3']) root.style.removeProperty(k);
+    delete root.dataset.panelInk;
   }
-  const ink = readTextColour();
-  if (ink) {
-    // softer text and hints are the colour mixed toward the page
-    root.style.setProperty('--ink', ink);
-    root.style.setProperty('--ink-2', `color-mix(in srgb, ${ink} 78%, var(--bg))`);
-    root.style.setProperty('--ink-3', `color-mix(in srgb, ${ink} 60%, var(--bg))`);
-  }
+  // panels see-through to what's behind them (the background image, say)
+  const alpha = readPanelOpacity();
+  if (alpha < 1) root.style.setProperty('--panel-alpha', `${Math.round(alpha * 100)}%`);
+  else root.style.removeProperty('--panel-alpha');
 }
 
 export function setAccent(hex: string | null) {
@@ -349,10 +344,19 @@ export function setPanelColour(hex: string | null) {
   applyTheme(readTheme());
   window.dispatchEvent(new Event(THEME_EVENT));
 }
-export function setTextColour(hex: string | null) {
-  save(TEXT_COLOUR_STORE, hex);
+/** How opaque panels are, from 0.2 to 1 (solid, the default). */
+export function readPanelOpacity(): number {
+  try {
+    const v = Number(localStorage.getItem(PANEL_OPACITY_STORE));
+    if (v >= 0.2 && v < 1) return v;
+  } catch {
+    // storage blocked: solid
+  }
+  return 1;
+}
+export function setPanelOpacity(v: number) {
+  save(PANEL_OPACITY_STORE, v >= 1 ? null : String(v));
   applyTheme(readTheme());
-  window.dispatchEvent(new Event(THEME_EVENT));
 }
 /** The app's text thickness: on <html>, so everything that doesn't set its
  * own weight follows it, and as --weight-shift for what does. */
