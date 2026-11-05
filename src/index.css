@@ -652,7 +652,7 @@ h2 {
     var(--bg);
 }
 /* a custom colour glows from the top corner too, so the ground feels lit by it */
-:root[data-theme='custom'] body {
+:root[data-tint='custom'] body {
   background:
     radial-gradient(1100px 680px at 88% -12%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 62%),
     radial-gradient(900px 600px at -10% 110%, color-mix(in srgb, var(--accent) 12%, transparent), transparent 60%),
@@ -664,7 +664,7 @@ h2 {
 :root[data-theme='blue'],
 :root[data-theme='purple'],
 :root[data-theme='pink'],
-:root[data-theme='custom'] {
+:root[data-tint='custom'] {
   /* the review heatmap in the theme's own colour */
   --heat-0: var(--surface-2);
   --heat-1: color-mix(in srgb, var(--accent) 30%, var(--surface));
@@ -3705,11 +3705,10 @@ a.button-like {
 }
 .grid-placeholder {
   position: absolute;
-  left: 2px;
-  top: 0;
   line-height: 22px;
-  font-size: 14px;
+  white-space: nowrap;
   color: var(--ink-3);
+  opacity: 0.8;
   pointer-events: none;
 }
 .grid-image {
@@ -5594,4 +5593,74 @@ body {
   .grid-lab.with-pdf > .grid-side {
     height: auto;
   }
+}
+
+/* ---- Preferences → Appearance: accent and text colours, text thickness */
+.colour-choice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+}
+.colour-own {
+  padding: 5px 12px;
+  font-size: 13px;
+  border-radius: 999px;
+}
+.colour-own.active,
+.weight-option.active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.colour-dot {
+  width: 28px;
+  height: 28px;
+  min-height: 28px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid rgb(127 127 127 / 0.35);
+}
+.colour-dot.active {
+  box-shadow:
+    0 0 0 2px var(--surface),
+    0 0 0 4px var(--text);
+}
+.colour-any {
+  display: grid;
+  place-items: center;
+  font-size: 16px;
+  color: var(--text-2);
+  background: var(--surface-2);
+  border-style: dashed;
+}
+.weight-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.weight-option {
+  min-width: 84px;
+}
+
+/* ---- Text thickness (Preferences → Appearance): what sets a weight of its
+   own moves by the same step as the body text, keeping its emphasis */
+button,
+button.link,
+.sidebar-nav button,
+.sidebar-foot button,
+.sidebar-group,
+.deck-open,
+.up-next-deck-name {
+  font-weight: calc(500 + var(--weight-shift, 0));
+}
+.deck-counts,
+.class-deck-name,
+h2 {
+  font-weight: calc(600 + var(--weight-shift, 0));
+}
+.sidebar-brand,
+.deck-mark,
+h1 {
+  font-weight: calc(650 + var(--weight-shift, 0));
 }

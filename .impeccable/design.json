@@ -1,0 +1,102 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-04T00:00:00Z",
+  "title": "Design System: Appa",
+  "extensions": {
+    "colorMeta": {
+      "sky-accent": { "role": "primary", "displayName": "Appa Sky", "canonical": "#2f6fd1", "tonalRamp": ["#0f2547", "#173a6e", "#1f4f95", "#2f6fd1", "#5a8fe0", "#8bb0ea", "#bfd3f4", "#e6eefb"] },
+      "paper": { "role": "neutral", "displayName": "Paper", "canonical": "#f5f4f0", "tonalRamp": ["#262522", "#3d3b36", "#5b5850", "#85827a", "#b5b2a8", "#d9d6cd", "#ebe9e3", "#f5f4f0"] },
+      "ink": { "role": "neutral", "displayName": "Ink", "canonical": "#191917" },
+      "due-green": { "role": "tertiary", "displayName": "Due Green", "canonical": "#1f7a3a" },
+      "again-red": { "role": "tertiary", "displayName": "Again Red", "canonical": "#c4362f" }
+    },
+    "typographyMeta": {
+      "headline": { "displayName": "Headline", "purpose": "A page's title." },
+      "title": { "displayName": "Title", "purpose": "Panel and section headings." },
+      "body": { "displayName": "Body", "purpose": "Text, fields and buttons." },
+      "label": { "displayName": "Label", "purpose": "Hints, counts, table headings; tabular figures for numbers." }
+    },
+    "shadows": [
+      { "name": "pop", "value": "0 1px 2px rgb(0 0 0 / 0.05), 0 12px 32px rgb(0 0 0 / 0.12)", "purpose": "Dialogs, popovers and the date picker." }
+    ],
+    "motion": [
+      { "name": "ease-out", "value": "cubic-bezier(0.23, 1, 0.32, 1)", "purpose": "Presses, dialogs arriving, hovers." }
+    ],
+    "breakpoints": [
+      { "name": "stack-sidebar", "value": "760px" },
+      { "name": "stack-panes", "value": "900px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one action that matters on a screen.",
+      "html": "<button class=\"ds-btn-primary\">Create class</button>",
+      "css": ".ds-btn-primary { background: var(--accent, #2f6fd1); color: #fff; border: 1px solid var(--accent, #2f6fd1); border-radius: 9px; padding: 6px 14px; font: 500 14px/1.4 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif; box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.14); cursor: pointer; transition: background-color 150ms ease, transform 120ms cubic-bezier(0.23, 1, 0.32, 1); } .ds-btn-primary:hover { background: color-mix(in srgb, #2f6fd1 88%, black); } .ds-btn-primary:active { transform: scale(0.97); } .ds-btn-primary:focus-visible { outline: 2px solid color-mix(in srgb, #2f6fd1 32%, transparent); outline-offset: 2px; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "The default for most actions.",
+      "html": "<button class=\"ds-btn\">Add cards</button>",
+      "css": ".ds-btn { background: var(--surface, #fdfdfb); color: var(--ink, #191917); border: 1px solid var(--border, #e4e2da); border-radius: 9px; padding: 6px 14px; font: 500 14px/1.4 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif; cursor: pointer; transition: background-color 150ms ease; } .ds-btn:hover { background: var(--surface-hover, #ebe9e3); } .ds-btn:focus-visible { outline: 2px solid color-mix(in srgb, #2f6fd1 32%, transparent); outline-offset: 2px; }"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input-text",
+      "description": "Names, numbers and search.",
+      "html": "<input class=\"ds-input\" placeholder=\"Class name, e.g. Biology 241\" />",
+      "css": ".ds-input { background: var(--surface, #fdfdfb); color: var(--ink, #191917); border: 1px solid var(--border, #e4e2da); border-radius: 9px; padding: 6px 10px; min-height: 34px; width: 260px; font: 400 15px/1.5 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif; } .ds-input:focus-visible { outline: none; border-color: #2f6fd1; box-shadow: 0 0 0 3px color-mix(in srgb, #2f6fd1 32%, transparent); }"
+    },
+    {
+      "name": "Panel",
+      "kind": "card",
+      "refersTo": "card-panel",
+      "description": "A softly lifted page on the paper.",
+      "html": "<div class=\"ds-panel\"><h2 class=\"ds-panel-title\">Up next</h2><p class=\"ds-panel-text\"><b style=\"color:#2f6fd1\">50</b> new · <b style=\"color:#1f7a3a\">12</b> due</p></div>",
+      "css": ".ds-panel { background: var(--surface, #fdfdfb); border: 1px solid var(--border, #e4e2da); border-radius: 14px; padding: 22px; box-shadow: 0 1px 2px rgb(60 50 30 / 0.05), 0 6px 18px -8px rgb(60 50 30 / 0.12); width: 280px; font-family: 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif; } .ds-panel-title { margin: 0 0 8px; font-size: 17px; font-weight: 600; } .ds-panel-text { margin: 0; font-size: 13px; color: #85827a; font-variant-numeric: tabular-nums; }"
+    },
+    {
+      "name": "Class Mark",
+      "kind": "custom",
+      "description": "A class's emoji, or its initial on a tint of its own hue.",
+      "html": "<span class=\"ds-mark\">🧪</span><span class=\"ds-mark ds-mark-letter\">B</span>",
+      "css": ".ds-mark { display: inline-grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; margin-right: 8px; font-size: 20px; background: hsl(170 60% 92%); } .ds-mark-letter { font: 650 15px 'Segoe UI', system-ui, sans-serif; color: hsl(320 45% 32%); background: hsl(320 60% 92%); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Friendly Notebook",
+    "overview": "Appa is a well-kept study notebook: warm paper, tidy pages, and a few bright tabs that tell you where things are. It is friendly, not childish: warmth lives in the small touches while the layout stays calm. Pages are softly lifted off the paper rather than drawn on it.",
+    "keyCharacteristics": [
+      "Warm paper ground, white pages one tone up, hairline rules.",
+      "One accent: Appa's sky blue, for the primary action, focus and new cards.",
+      "Data colours carry meaning (new, due, again, hard) and are never decoration.",
+      "Each class has a mark: its emoji, or its initial on a tint of its own hue.",
+      "Softly lifted panels; dialogs lifted most.",
+      "Themes swap the palette, never the structure."
+    ],
+    "rules": [
+      { "name": "The One Blue Rule", "body": "The accent marks the next action, focus and new cards. Nothing else on a screen is blue for decoration.", "section": "colors" },
+      { "name": "The Data Colours Mean Something Rule", "body": "Green is due, blue is new, red is again, amber is hard. They are never used as ornament.", "section": "colors" },
+      { "name": "The Tabular Numbers Rule", "body": "Counts, dates and intervals use tabular figures so columns of numbers line up.", "section": "typography" },
+      { "name": "The Sheets On A Desk Rule", "body": "Resting surfaces get a soft, low shadow, never a hard or dark one; the strongest shadow belongs to whatever is floating above the page.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do keep one blue: the primary action, focus and new cards.",
+      "Do give a class its emoji or tinted initial wherever classes are listed.",
+      "Do lift panels and cards softly off the paper; lift dialogs the most.",
+      "Do keep counts in the data colours and in tabular figures.",
+      "Do let warmth come from words, emoji and rounded corners, with calm layouts."
+    ],
+    "donts": [
+      "Don't use the data colours (green, blue, red, amber) as decoration.",
+      "Don't add hard or dark shadows, or shadows on every element.",
+      "Don't change the structure between themes; themes only swap the palette.",
+      "Don't make it childish: no cartoon clutter, bouncing motion or loud colour during study."
+    ]
+  }
+}

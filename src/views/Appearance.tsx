@@ -1,8 +1,68 @@
 import { useRef, useState } from 'react';
 import { useCollection } from '../lib/collection';
-import { FONTS, readCustomColour, readFont, readTheme, setFont, setTheme, THEMES, type Theme } from '../lib/theme';
+import {
+  ACCENTS,
+  FONTS,
+  readAccent,
+  readCustomColour,
+  readFont,
+  readTextColour,
+  readTextWeight,
+  readTheme,
+  setAccent,
+  setFont,
+  setTextColour,
+  setTextWeight,
+  setTheme,
+  TEXT_COLOURS,
+  TEXT_WEIGHTS,
+  THEMES,
+  type Theme,
+} from '../lib/theme';
 
-/** The colour theme, the app's font, and a background image for the app with an opacity slider. */
+/** A colour of your own over the theme's: the theme's own, a few presets, or any colour. */
+function ColourChoice({ label, hint, value, presets, onChange }: { label: string; hint: string; value: string | null; presets: { name: string; value: string }[]; onChange: (hex: string | null) => void }) {
+  const picker = useRef<HTMLInputElement>(null);
+  const isPreset = !!value && presets.some((p) => p.value.toLowerCase() === value.toLowerCase());
+  return (
+    <div className="field">
+      <span>{label}</span>
+      <span className="hint">{hint}</span>
+      <div className="colour-choice" role="radiogroup" aria-label={label}>
+        <button role="radio" aria-checked={!value} className={`colour-own ${!value ? 'active' : ''}`} onClick={() => onChange(null)}>
+          Theme's own
+        </button>
+        {presets.map((p) => (
+          <button
+            key={p.value}
+            role="radio"
+            aria-checked={value?.toLowerCase() === p.value.toLowerCase()}
+            aria-label={p.name}
+            title={p.name}
+            className={`colour-dot ${value?.toLowerCase() === p.value.toLowerCase() ? 'active' : ''}`}
+            style={{ background: p.value }}
+            onClick={() => onChange(p.value)}
+          />
+        ))}
+        <button
+          role="radio"
+          aria-checked={!!value && !isPreset}
+          aria-label="Another colour"
+          title="Another colour"
+          className={`colour-dot colour-any ${value && !isPreset ? 'active' : ''}`}
+          style={value && !isPreset ? { background: value } : undefined}
+          onClick={() => picker.current?.click()}
+        >
+          {!(value && !isPreset) && '+'}
+        </button>
+        <input ref={picker} type="color" className="theme-colour-input" tabIndex={-1} value={value ?? '#2f6fd1'} aria-label={`${label}: another colour`} onChange={(e) => onChange(e.target.value)} />
+      </div>
+    </div>
+  );
+}
+
+/** The colour theme, accent and text colours, the app's font and its thickness,
+ * and a background image for the app with an opacity slider. */
 export function Appearance() {
   const col = useCollection();
   const input = useRef<HTMLInputElement>(null);
@@ -11,6 +71,9 @@ export function Appearance() {
   const [custom, setCustom] = useState(readCustomColour);
   const colourInput = useRef<HTMLInputElement>(null);
   const [font, setFontState] = useState(readFont);
+  const [accent, setAccentState] = useState(readAccent);
+  const [ink, setInkState] = useState(readTextColour);
+  const [weight, setWeightState] = useState(readTextWeight);
   const pct = Math.round(col.prefs.backgroundOpacity * 100);
 
   const choose = async (file: File) => {
@@ -62,6 +125,26 @@ export function Appearance() {
           </span>
         </div>
       )}
+      <ColourChoice
+        label="Accent colour"
+        hint="Buttons, toggles, selections, focus and the calendar's chosen days"
+        value={accent}
+        presets={ACCENTS}
+        onChange={(hex) => {
+          setAccent(hex);
+          setAccentState(hex);
+        }}
+      />
+      <ColourChoice
+        label="Text colour"
+        hint="Dark colours for light themes, light ones for dark themes; softer text and hints follow it"
+        value={ink}
+        presets={TEXT_COLOURS}
+        onChange={(hex) => {
+          setTextColour(hex);
+          setInkState(hex);
+        }}
+      />
       <div className="field">
         <span>Font</span>
         <div className="font-picker" role="radiogroup" aria-label="Font">
@@ -81,6 +164,26 @@ export function Appearance() {
                 Aa
               </span>
               {f.name}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="field">
+        <span>Text thickness</span>
+        <div className="weight-picker" role="radiogroup" aria-label="Text thickness">
+          {TEXT_WEIGHTS.map((w) => (
+            <button
+              key={w.value}
+              role="radio"
+              aria-checked={weight === w.value}
+              className={`weight-option ${weight === w.value ? 'active' : ''}`}
+              style={{ fontWeight: w.value }}
+              onClick={() => {
+                setTextWeight(w.value);
+                setWeightState(w.value);
+              }}
+            >
+              {w.name}
             </button>
           ))}
         </div>

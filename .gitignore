@@ -8,3 +8,8 @@ update-keys/
 .env*
 *.log
 .DS_Store
+
+# Impeccable live mode's working state (its config and design.json are kept)
+.impeccable/live/*
+!.impeccable/live/config.json
+.impeccable/config.local.json

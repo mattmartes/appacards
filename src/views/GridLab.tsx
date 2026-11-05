@@ -70,12 +70,6 @@ const PAPER_STORE = 'appa-gridlab-paper';
 /** How the page looks: following the app's theme, black with white text,
  * white with black text, or ruled notebook paper. */
 export type Paper = 'theme' | 'dark' | 'white' | 'lined';
-const PAPERS: { key: Paper; name: string }[] = [
-  { key: 'theme', name: 'Match the app' },
-  { key: 'dark', name: 'Black' },
-  { key: 'white', name: 'White' },
-  { key: 'lined', name: 'Lined paper' },
-];
 
 /** What a grid note is saved as. */
 export interface GridNoteData {
@@ -84,8 +78,6 @@ export interface GridNoteData {
 }
 /** what Tab types, and Backspace in an indent takes away at once */
 const TAB = '    ';
-/** horizontal snap choices, in letters */
-const SNAPS = [1, 2, 4, 8];
 
 const newId = () => Math.random().toString(36).slice(2, 9);
 
@@ -368,7 +360,8 @@ export function GridEditor({
 }) {
   const [start] = useState(open);
   const [items, setItems] = useState<GridItem[]>(() => liftFormulas(toSheet(start.items), SHEET_COLS, null, formulaSize).items);
-  const [paper, setPaper] = useState<Paper>(start.paper ?? 'theme');
+  // a note keeps the paper it was saved with; there's no menu to change it any more
+  const [paper] = useState<Paper>(start.paper ?? 'theme');
   const [active, setActive] = useState<string | null>(null);
   const [caret, setCaret] = useState(0);
   /** the other end of a text selection; null when there isn't one */
@@ -379,7 +372,8 @@ export function GridEditor({
    * spaces or line breaks typing will put in first to get there */
   const [pad, setPad] = useState<{ at: number; fill: string; cell: Cell } | null>(null);
   const [focused, setFocused] = useState(false);
-  const [snap, setSnap] = useState(1);
+  /** moved blocks snap to every letter across */
+  const snap = 1;
   const [showGrid, setShowGrid] = useState(true);
   /** the font letters use unless they're set to another */
   const [noteFont, setNoteFont] = useState(() => {
@@ -1309,6 +1303,8 @@ export function GridEditor({
   };
 
   const caretCell = editing ? (pad?.cell ?? caretAt(sheetLayout, Math.min(caret, editing.text.length))) : null;
+  /** where typing starts on an empty page */
+  const startCell = caretAt(sheetLayout, 0);
   /** where the caret is drawn: by the letters it sits beside, in a word in a font that isn't monospaced */
   const caretPx = (() => {
     if (!caretCell) return 0;
@@ -1414,26 +1410,6 @@ export function GridEditor({
             e.target.value = '';
           }}
         />
-        <label className="grid-lab-snap">
-          Horizontal snap
-          <div className="seg" role="radiogroup" aria-label="Horizontal snap">
-            {SNAPS.map((s) => (
-              <button key={s} role="radio" aria-checked={snap === s} className={snap === s ? 'active' : ''} onClick={() => setSnap(s)}>
-                {s} {s === 1 ? 'letter' : 'letters'}
-              </button>
-            ))}
-          </div>
-        </label>
-        <label className="grid-lab-snap">
-          Paper
-          <select value={paper} onChange={(e) => setPaper(e.target.value as Paper)} aria-label="Paper">
-            {PAPERS.map((p) => (
-              <option key={p.key} value={p.key}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-        </label>
         <label className="check">
           <input type="checkbox" checked={showGrid} onChange={(e) => setShowGrid(e.target.checked)} /> Show grid
         </label>
@@ -1783,8 +1759,17 @@ export function GridEditor({
             );
           return null;
         })}
-        {!sheet.text && !focused && (
-          <span className="grid-placeholder" style={{ left: 2, top: 0 }}>
+        {!sheet.text && (
+          // where the first letter will go, in the notes' own font, like a text box's placeholder
+          <span
+            className="grid-placeholder"
+            style={{
+              left: startCell.col * CELL_W + 2,
+              top: startCell.row * CELL_H,
+              fontFamily: fontOf(noteFont).stack,
+              fontSize: fontSize(noteFont),
+            }}
+          >
             Click anywhere and start typing…
           </span>
         )}
