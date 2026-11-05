@@ -5747,3 +5747,11 @@ h1 {
 :root[style*='--panel-alpha'] .sidebar {
   background: color-mix(in srgb, color-mix(in srgb, var(--surface-2) 55%, var(--bg)) var(--panel-alpha, 100%), transparent);
 }
+
+/* the card editor's auto-correct switch, a word rather than an icon */
+.autocorrect-tool {
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  padding: 0 2px;
+}

@@ -3,7 +3,7 @@
   "productName": "Appa",
   "description": "Appa — Anki-style flashcards with FSRS scheduling",
   "private": true,
-  "version": "1.1.22",
+  "version": "1.1.23",
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
@@ -20,10 +20,12 @@
     "minShell": "1.1.0"
   },
   "dependencies": {
+    "dictionary-en": "^4.0.0",
     "fzstd": "^0.1.1",
     "idb": "^8.0.4",
     "jszip": "^3.10.1",
     "katex": "^0.16.11",
+    "nspell": "^2.1.5",
     "pdfjs-dist": "^6.4.299",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
@@ -32,6 +34,7 @@
   "devDependencies": {
     "@types/katex": "^0.16.7",
     "@types/node": "^24.19.2",
+    "@types/nspell": "^2.1.6",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@types/sql.js": "^1.4.11",

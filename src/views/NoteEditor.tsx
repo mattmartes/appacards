@@ -6,6 +6,10 @@ import { useEffect, useRef, useState } from 'react';
 import { col } from '../lib/collection';
 import { fromEditorHtml, toEditorHtml } from '../lib/media';
 import { clozeOrdinals } from '../lib/template';
+import { correctionFor, loadSpeller, readAutocorrect, readySpeller, saveAutocorrect } from '../lib/autocorrect';
+
+/** Keys that finish a word, so auto-correct looks at the word before them. */
+const WORD_ENDS = new Set([' ', 'Enter', '.', ',', ';', ':', '!', '?', ')']);
 
 const ALLOWED = new Set(['B', 'STRONG', 'I', 'EM', 'U', 'SUP', 'SUB', 'BR', 'DIV', 'P', 'UL', 'OL', 'LI', 'IMG', 'A', 'SPAN', 'FONT', 'RUBY', 'RT', 'RB', 'TABLE', 'TBODY', 'TR', 'TD', 'TH', 'HR']);
 
@@ -62,6 +66,7 @@ function RichField({
   html,
   sticky,
   onToggleSticky,
+  spellcheck,
 }: {
   name: string;
   value: string;
@@ -70,6 +75,8 @@ function RichField({
   html: boolean;
   sticky?: boolean;
   onToggleSticky?: () => void;
+  /** the browser's own spelling underline, on with auto-correct */
+  spellcheck: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const lastEmitted = useRef<string | null>(null);
@@ -128,6 +135,7 @@ function RichField({
           className="rich-field card-face-text"
           contentEditable
           suppressContentEditableWarning
+          spellCheck={spellcheck}
           role="textbox"
           aria-multiline="true"
           aria-label={name}
@@ -190,6 +198,62 @@ export function NoteEditor({ fields, values, onChange, cloze, sticky, onToggleSt
   const attach = useRef<HTMLInputElement>(null);
   const valuesRef = useRef(values);
   valuesRef.current = values;
+  const [autocorrect, setAutocorrect] = useState(readAutocorrect);
+  /** the last correction, so Backspace straight after it puts the word back */
+  const lastFix = useRef<{ original: string; fix: string; end: string } | null>(null);
+  useEffect(() => {
+    if (autocorrect) void loadSpeller();
+  }, [autocorrect]);
+  const toggleAutocorrect = () => {
+    saveAutocorrect(!autocorrect);
+    setAutocorrect(!autocorrect);
+  };
+
+  /** The word just before the caret in a card field, with the text node it's in. */
+  const wordBeforeCaret = () => {
+    const sel = window.getSelection();
+    const node = sel?.anchorNode;
+    if (!sel || !sel.isCollapsed || !node || node.nodeType !== Node.TEXT_NODE || !node.parentElement?.closest('.rich-field')) return null;
+    // a space typed at the end of a field arrives as a non-breaking one
+    const text = (node as Text).data.slice(0, sel.anchorOffset).replace(/\u00a0/g, ' ');
+    return { sel, node: node as Text, offset: sel.anchorOffset, text };
+  };
+  /** Swaps the `length` letters before the caret for `to`, as an edit Ctrl+Z can undo. */
+  const replaceBefore = (at: NonNullable<ReturnType<typeof wordBeforeCaret>>, length: number, to: string) => {
+    const range = document.createRange();
+    range.setStart(at.node, at.offset - length);
+    range.setEnd(at.node, at.offset);
+    at.sel.removeAllRanges();
+    at.sel.addRange(range);
+    exec('insertText', to);
+  };
+
+  /** Auto-correct, before the key that finishes a word goes in. */
+  const autocorrectKey = (e: React.KeyboardEvent) => {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    const undo = lastFix.current;
+    lastFix.current = null;
+    // Backspace straight after a correction puts the word as typed back
+    if (e.key === 'Backspace' && undo) {
+      const at = wordBeforeCaret();
+      if (at?.text.endsWith(undo.fix + undo.end)) {
+        e.preventDefault();
+        replaceBefore(at, undo.fix.length + undo.end.length, undo.original + undo.end);
+      }
+      return;
+    }
+    const sp = readySpeller();
+    if (!autocorrect || !sp || !WORD_ENDS.has(e.key)) return;
+    const at = wordBeforeCaret();
+    const m = at && /([A-Za-z']+)$/.exec(at.text);
+    if (!at || !m) return;
+    const word = m[1];
+    const before = at.text.slice(0, at.text.length - word.length).trimEnd();
+    const fix = correctionFor(sp, word, before === '' || /[.!?:]$/.test(before));
+    if (!fix || fix === word) return;
+    replaceBefore(at, word.length, fix);
+    lastFix.current = e.key === 'Enter' ? null : { original: word, fix, end: e.key };
+  };
 
   const saveColors = (c: typeof colors) => {
     setColors(c);
@@ -241,6 +305,8 @@ export function NoteEditor({ fields, values, onChange, cloze, sticky, onToggleSt
   };
 
   const onKeyDown = (e: React.KeyboardEvent) => {
+    autocorrectKey(e);
+    if (e.defaultPrevented) return;
     const ctrl = e.ctrlKey || e.metaKey;
     const key = e.key.toLowerCase();
     const handle = (fn: () => void) => {
@@ -353,6 +419,14 @@ export function NoteEditor({ fields, values, onChange, cloze, sticky, onToggleSt
           )}
           <Btn label="</>" title="Toggle HTML editor (Ctrl+Shift+X)" onPress={toggleHtml} active={!!(focusedField && htmlView[focusedField])} />
         </div>
+        <div className="tool-group">
+          <Btn
+            label={<span className="autocorrect-tool">✓ Auto-correct</span>}
+            title={autocorrect ? 'Auto-correct is on: misspellings are fixed as you type (Backspace undoes one)' : 'Auto-correct is off'}
+            onPress={toggleAutocorrect}
+            active={autocorrect}
+          />
+        </div>
       </div>
       {fields.map((f) => (
         <div key={f} onFocusCapture={() => setFocusedField(f)}>
@@ -364,6 +438,7 @@ export function NoteEditor({ fields, values, onChange, cloze, sticky, onToggleSt
             onFocus={(el) => (focused.current = el)}
             sticky={sticky?.[f]}
             onToggleSticky={onToggleSticky ? () => onToggleSticky(f) : undefined}
+            spellcheck={autocorrect}
           />
         </div>
       ))}
