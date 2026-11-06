@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { findDuplicates } from '../lib/duplicates';
 import { useCollection } from '../lib/collection';
 import { NOTE_TYPES, noteProblem, noteType, generateCards, textFields } from '../lib/noteTypes';
 import { OcclusionEditor } from './OcclusionEditor';
@@ -45,6 +46,16 @@ export function AddCards({ initialDeckId, bare = false }: { initialDeckId?: Id; 
   /** bumped after adding a smart note, for a fresh editor */
   const [smartKey, setSmartKey] = useState(0);
   const nt = noteType(kind);
+  // a card already in the deck with this front, or this back
+  const [frontField, backField] = textFields(kind);
+  const front = frontField ? (values[frontField] ?? '') : '';
+  const back = backField ? (values[backField] ?? '') : '';
+  const duplicates = useMemo(
+    () => (kind === 'smart' ? [] : findDuplicates(col, deckId, front, back)),
+    // col.version changes whenever cards are added or edited
+    [col, col.version, deckId, kind, front, back],
+  );
+  const deckName = col.decks.get(deckId)?.name.split('::').pop() ?? 'this deck';
 
   const changeKind = (k: NoteKind) => {
     // carry content over by field position, as Anki does when switching types
@@ -171,6 +182,17 @@ export function AddCards({ initialDeckId, bare = false }: { initialDeckId?: Id; 
             sticky={sticky}
             onToggleSticky={(f) => setSticky((s) => ({ ...s, [f]: !s[f] }))}
           />
+          {duplicates.length > 0 && (
+            <div className="duplicate-warning" role="status">
+              {duplicates.slice(0, 3).map((d) => (
+                <p key={d.card.id}>
+                  <b>Same {d.side} as a card in {deckName}:</b> “{d.front || '(empty)'}” → “{d.back || '(empty)'}”
+                </p>
+              ))}
+              {duplicates.length > 3 && <p className="muted">…and {duplicates.length - 3} more.</p>}
+              <p className="muted">You can still add it.</p>
+            </div>
+          )}
           <label className="field">
             Tags <span className="hint">Space-separated</span>
             <input type="text" value={tags} onChange={(e) => setTags(e.target.value)} />

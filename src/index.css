@@ -5756,3 +5756,21 @@ h1 {
   white-space: nowrap;
   padding: 0 2px;
 }
+
+/* ---- Add cards: a card with the same front or back is already in the deck */
+.duplicate-warning {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--hard) 45%, var(--border));
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--hard) 10%, var(--surface));
+  font-size: 13.5px;
+}
+.duplicate-warning p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.duplicate-warning b {
+  color: var(--hard);
+}
