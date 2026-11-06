@@ -5774,3 +5774,8 @@ h1 {
 .duplicate-warning b {
   color: var(--hard);
 }
+
+/* the card editor: changing a note's type will delete some of its cards */
+.hint.type-change-warn {
+  color: var(--hard);
+}
