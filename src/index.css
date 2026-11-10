@@ -5779,3 +5779,18 @@ h1 {
 .hint.type-change-warn {
   color: var(--hard);
 }
+
+/* Study all cards: how far through the practice run */
+.cram-progress {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--surface-2, rgba(127, 127, 127, 0.18));
+  overflow: hidden;
+}
+.cram-progress > span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  border-radius: inherit;
+  transition: width 0.2s ease;
+}

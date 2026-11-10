@@ -83,6 +83,9 @@ export function ClassHome({ deckId, go }: { deckId: Id; go: (v: View) => void })
           <button onClick={() => input.current?.click()} disabled={uploading} title="Upload lecture slides, PDFs, documents or images to this class">
             {uploading ? 'Uploading…' : 'Add notes'}
           </button>
+          <button onClick={() => go({ name: 'cram', deckId })} disabled={!data.cards} title="Go through every card in this class, shuffled, without changing your schedule">
+            Study all cards
+          </button>
           <button onClick={() => go({ name: 'add', deckId })}>Add cards</button>
           <input ref={input} type="file" multiple hidden onChange={(e) => e.target.files && void upload(e.target.files).then(() => (e.target.value = ''))} />
         </div>

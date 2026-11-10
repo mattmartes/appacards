@@ -298,6 +298,9 @@ export function Reviewer({ deckId, go }: { deckId: Id; go: (v: View) => void }) 
         )}
         <div className="row" style={{ justifyContent: 'center', marginTop: 16 }}>
           <button onClick={() => go({ name: 'decks' })}>Back to Home</button>
+          <button className="primary" onClick={() => go({ name: 'cram', deckId })} title="Go through every card in this deck, shuffled, without changing your schedule">
+            Study all cards anyway
+          </button>
           <button onClick={() => go({ name: 'options', deckId })}>Deck options</button>
           {col.canUndo() && <button onClick={undo}>Undo last answer</button>}
         </div>
@@ -336,6 +339,9 @@ export function Reviewer({ deckId, go }: { deckId: Id; go: (v: View) => void }) 
           <span className="muted">· {cardDeck.name.slice(deck.name.length).replace(/^::/, '').split('::').join(' › ')}</span>
         )}
         <span className="spacer" />
+        <button className="link" onClick={() => go({ name: 'cram', deckId })} title="Go through every card in this deck, shuffled, without changing your schedule">
+          Study all cards
+        </button>
         {preset?.showTimer && <Timer key={card.id} since={shownAt} capSecs={preset.capAnswerTimeSecs} />}
         <button onClick={() => setEditing(true)} title="Edit (E)">
           Edit

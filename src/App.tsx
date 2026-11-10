@@ -14,6 +14,7 @@ export interface LessonStart {
 }
 import { Home } from './views/Home';
 import { Reviewer } from './views/Reviewer';
+import { Cram } from './views/Cram';
 import { AddCards } from './views/AddCards';
 import { Browse } from './views/Browse';
 import { SettingsView } from './views/Settings';
@@ -31,6 +32,8 @@ export type View =
   /** Home: today's stats; decks are in the sidebar */
   | { name: 'decks' }
   | { name: 'review'; deckId: Id }
+  /** practice every card in a deck, without changing its schedule */
+  | { name: 'cram'; deckId: Id }
   /** a class's homepage: its decks and notes */
   | { name: 'class'; deckId: Id }
   /** a deck's uploaded files */
@@ -248,6 +251,7 @@ export default function App() {
           <div className="app-content">
             {view.name === 'decks' && <Home go={go} />}
             {view.name === 'review' && <Reviewer key={view.deckId} deckId={view.deckId} go={go} />}
+            {view.name === 'cram' && <Cram key={view.deckId} deckId={view.deckId} go={go} />}
             {view.name === 'class' && <ClassHome key={view.deckId} deckId={view.deckId} go={go} />}
             {view.name === 'notes' &&<DeckNotes key={view.deckId} deckId={view.deckId} go={go} />}
             {view.name === 'add' && <AddCards key={view.deckId} initialDeckId={view.deckId} />}
